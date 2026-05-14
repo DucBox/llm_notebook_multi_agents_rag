@@ -1,0 +1,12 @@
+.env
+.claude/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+storage/documents/*
+!storage/documents/.gitkeep
+dist/
+*.egg-info/
