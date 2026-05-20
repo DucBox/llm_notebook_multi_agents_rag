@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSION: int = 1536
     EMBEDDING_BATCH_SIZE: int = 100
 
-    RERANKER_MODEL: str = "BAAI/bge-reranker-base"
+    RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
     RERANKER_ENABLED: bool = True
     RERANKER_USE_FP16: bool = False  # False = CPU-safe; set True if GPU available
 
