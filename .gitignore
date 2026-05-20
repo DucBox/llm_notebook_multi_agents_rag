@@ -10,3 +10,4 @@ storage/documents/*
 !storage/documents/.gitkeep
 dist/
 *.egg-info/
+notes/
