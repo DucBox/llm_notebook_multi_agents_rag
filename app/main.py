@@ -15,6 +15,7 @@ from app.core.exceptions import (
 )
 from app.documents.router import router as documents_router
 from app.embeddings.router import router as embeddings_router
+from app.retrieval.router import router as retrieval_router
 
 app = FastAPI(
     title="LLM Notebook API",
@@ -24,6 +25,7 @@ app = FastAPI(
 
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(embeddings_router, prefix="/api/v1")
+app.include_router(retrieval_router, prefix="/api/v1")
 
 
 def custom_openapi():

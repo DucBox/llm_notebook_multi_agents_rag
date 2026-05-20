@@ -29,6 +29,8 @@ class Document(Base, TimestampMixin):
     mime_type: Mapped[str] = mapped_column(Text, nullable=False)
     content_sha256: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     author: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Stub for multi-user isolation. FK to users.id will be added when auth is implemented.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
 
     status: Mapped[DocumentStatus] = mapped_column(
         Enum(DocumentStatus, name="document_status"),

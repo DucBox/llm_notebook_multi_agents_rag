@@ -16,6 +16,7 @@ class DocumentRead(BaseModel):
     mime_type: str
     content_sha256: str
     author: str | None
+    user_id: uuid.UUID | None
     status: DocumentStatus
     error_message: str | None
     processing_started_at: datetime | None
