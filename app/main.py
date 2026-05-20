@@ -13,6 +13,7 @@ from app.core.exceptions import (
     UnsupportedFileTypeError,
 )
 from app.documents.router import router as documents_router
+from app.embeddings.router import router as embeddings_router
 
 app = FastAPI(
     title="LLM Notebook API",
@@ -21,6 +22,7 @@ app = FastAPI(
 )
 
 app.include_router(documents_router, prefix="/api/v1")
+app.include_router(embeddings_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health", tags=["system"])

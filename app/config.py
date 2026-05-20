@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 50
     APP_VERSION: str = "1.0.0"
 
+    OPENAI_API_KEY: str = ""
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIMENSION: int = 1536
+    EMBEDDING_BATCH_SIZE: int = 100
+
     @property
     def max_file_size_bytes(self) -> int:
         return self.MAX_FILE_SIZE_MB * 1024 * 1024
