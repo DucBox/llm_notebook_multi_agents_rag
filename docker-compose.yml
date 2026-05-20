@@ -30,6 +30,7 @@ services:
       EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-100}
     volumes:
       - document_storage:/app/storage/documents
+      - hf_cache:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy
@@ -39,3 +40,4 @@ services:
 volumes:
   postgres_data:
   document_storage:
+  hf_cache:

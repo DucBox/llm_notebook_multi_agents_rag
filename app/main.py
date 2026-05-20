@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
@@ -17,10 +19,22 @@ from app.documents.router import router as documents_router
 from app.embeddings.router import router as embeddings_router
 from app.retrieval.router import router as retrieval_router
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if settings.RERANKER_ENABLED:
+        import asyncio
+        from app.retrieval.reranker import rerank
+        # Warmup: forces model download + weight loading before first real request
+        await rerank("warmup", ["warmup"])
+    yield
+
+
 app = FastAPI(
     title="LLM Notebook API",
     version=settings.APP_VERSION,
     description="Multi-agent RAG system for document Q&A with citations",
+    lifespan=lifespan,
 )
 
 app.include_router(documents_router, prefix="/api/v1")

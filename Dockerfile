@@ -20,8 +20,6 @@ RUN echo 'Acquire::Retries "5";' > /etc/apt/apt.conf.d/80-retries && \
 COPY pyproject.toml .
 # Install torch CPU-only first to avoid pulling 2GB+ CUDA wheels
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-# Pin transformers: FlagEmbedding is incompatible with transformers>=4.50 (XLMRobertaTokenizer missing prepare_for_model)
-RUN pip install --no-cache-dir "transformers>=4.40.0,<4.50.0"
 RUN pip install --no-cache-dir -e .
 
 COPY . .
