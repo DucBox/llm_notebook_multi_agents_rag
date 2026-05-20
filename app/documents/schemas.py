@@ -52,6 +52,14 @@ class DuplicateCheckResponse(BaseModel):
     status: DocumentStatus | None = None
 
 
+class UploadResult(BaseModel):
+    filename: str
+    success: bool
+    document: DocumentRead | None = None
+    embedded_chunks: int | None = None
+    error: str | None = None
+
+
 # ── Chunk ─────────────────────────────────────
 
 class ChunkRead(BaseModel):

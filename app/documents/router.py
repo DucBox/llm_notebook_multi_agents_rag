@@ -25,7 +25,9 @@ from app.documents.schemas import (
     DuplicateCheckRequest,
     DuplicateCheckResponse,
     JobRead,
+    UploadResult,
 )
+from app.embeddings import service as embedding_service
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -45,14 +47,13 @@ async def check_duplicate(
 
 # ── Documents CRUD ─────────────────────────────────────────────────────────────
 
-@router.post("", status_code=status.HTTP_202_ACCEPTED, response_model=DocumentRead)
-async def upload_document(
-    file: UploadFile = File(...),
+@router.post("", status_code=status.HTTP_202_ACCEPTED, response_model=list[UploadResult])
+async def upload_documents(
+    files: list[UploadFile] = File(...),
     author: str | None = Form(None),
     metadata: str | None = Form(None, description="JSON string"),
     session: AsyncSession = Depends(get_db),
 ):
-    file_data = await file.read()
     parsed_metadata: dict = {}
     if metadata:
         try:
@@ -60,25 +61,38 @@ async def upload_document(
         except json.JSONDecodeError:
             raise HTTPException(status_code=422, detail="metadata must be valid JSON")
 
-    try:
-        doc = await service.upload_document(
-            file_data=file_data,
-            filename=file.filename or "upload",
-            author=author,
-            metadata=parsed_metadata,
-            session=session,
-        )
-    except DuplicateDocumentError as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"message": "Document already exists", "existing_document_id": e.existing_document_id},
-        )
-    except UnsupportedFileTypeError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except FileTooLargeError as e:
-        raise HTTPException(status_code=413, detail=str(e))
+    results: list[UploadResult] = []
 
-    return DocumentRead.model_validate(doc)
+    for file in files:
+        filename = file.filename or "upload"
+        try:
+            file_data = await file.read()
+            doc = await service.upload_document(
+                file_data=file_data,
+                filename=filename,
+                author=author,
+                metadata=parsed_metadata,
+                session=session,
+            )
+            embed_result = await embedding_service.embed_document(doc.id, session)
+            results.append(UploadResult(
+                filename=filename,
+                success=True,
+                document=DocumentRead.model_validate(doc),
+                embedded_chunks=embed_result["embedded"],
+            ))
+        except DuplicateDocumentError as e:
+            results.append(UploadResult(
+                filename=filename,
+                success=False,
+                error=f"Duplicate document (existing id: {e.existing_document_id})",
+            ))
+        except (UnsupportedFileTypeError, FileTooLargeError) as e:
+            results.append(UploadResult(filename=filename, success=False, error=str(e)))
+        except Exception as e:
+            results.append(UploadResult(filename=filename, success=False, error=str(e)))
+
+    return results
 
 
 @router.get("", response_model=PaginatedResponse[DocumentRead])
