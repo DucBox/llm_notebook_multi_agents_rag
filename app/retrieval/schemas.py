@@ -6,6 +6,12 @@ from pydantic import BaseModel, Field
 class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1)
     top_n: int = Field(default=5, ge=1, le=50)
+    retrieve_n: int | None = Field(
+        default=None,
+        ge=1,
+        le=100,
+        description="Candidates to retrieve before reranking. Defaults to top_n * 3 (min 10).",
+    )
     document_ids: list[uuid.UUID] | None = Field(
         default=None,
         description="Filter search to specific documents. None = search all.",
@@ -22,7 +28,8 @@ class ChunkResult(BaseModel):
     text_content: str
     char_offset_start: int
     char_offset_end: int
-    score: float = Field(description="Cosine similarity [0, 1]. Higher = more relevant.")
+    score: float = Field(description="Cosine similarity [0, 1] from pgvector.")
+    rerank_score: float | None = Field(default=None, description="Reranker relevance score [0, 1]. Higher = more relevant.")
 
     model_config = {"from_attributes": True}
 

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.documents.models import Document, DocumentChunk
 from app.embeddings.providers.openai import OpenAIEmbeddingProvider
+from app.retrieval import reranker as reranker_module
 from app.retrieval.schemas import ChunkResult
 
 
@@ -22,6 +23,7 @@ async def semantic_search(
     query: str,
     top_n: int,
     session: AsyncSession,
+    retrieve_n: int | None = None,
     document_ids: list[uuid.UUID] | None = None,
     user_id: uuid.UUID | None = None,
 ) -> list[ChunkResult]:
@@ -29,8 +31,10 @@ async def semantic_search(
     vectors = await provider.embed([query])
     query_vector = vectors[0]
 
+    candidates_n = retrieve_n or max(top_n * 3, 10)
+
     cast_vec = sa.cast(query_vector, Vector(settings.EMBEDDING_DIMENSION))
-    distance_col = DocumentChunk.embedding.op("<=>")(cast_vec).label("distance")
+    distance_col = DocumentChunk.embedding.op("<=>", return_type=sa.Float)(cast_vec).label("distance")
 
     stmt = (
         sa.select(
@@ -49,7 +53,7 @@ async def semantic_search(
         .where(DocumentChunk.embedding.is_not(None))
         .where(Document.deleted_at.is_(None))
         .order_by(distance_col.asc())
-        .limit(top_n)
+        .limit(candidates_n)
     )
 
     if user_id:
@@ -58,8 +62,10 @@ async def semantic_search(
         stmt = stmt.where(DocumentChunk.document_id.in_(document_ids))
 
     rows = (await session.execute(stmt)).mappings().all()
+    if not rows:
+        return []
 
-    return [
+    chunks = [
         ChunkResult(
             chunk_id=row["id"],
             document_id=row["document_id"],
@@ -74,3 +80,11 @@ async def semantic_search(
         )
         for row in rows
     ]
+
+    if settings.RERANKER_ENABLED:
+        rerank_scores = await reranker_module.rerank(query, [c.text_content for c in chunks])
+        for chunk, rr_score in zip(chunks, rerank_scores):
+            chunk.rerank_score = round(float(rr_score), 4)
+        chunks.sort(key=lambda c: c.rerank_score, reverse=True)
+
+    return chunks[:top_n]

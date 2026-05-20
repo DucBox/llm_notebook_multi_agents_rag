@@ -17,6 +17,7 @@ async def query(
         query=payload.query,
         top_n=payload.top_n,
         session=session,
+        retrieve_n=payload.retrieve_n,
         document_ids=payload.document_ids,
     )
     return QueryResponse(

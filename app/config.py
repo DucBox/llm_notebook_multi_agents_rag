@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSION: int = 1536
     EMBEDDING_BATCH_SIZE: int = 100
 
+    RERANKER_MODEL: str = "BAAI/bge-reranker-base"
+    RERANKER_ENABLED: bool = True
+    RERANKER_USE_FP16: bool = False  # False = CPU-safe; set True if GPU available
+
     @property
     def max_file_size_bytes(self) -> int:
         return self.MAX_FILE_SIZE_MB * 1024 * 1024

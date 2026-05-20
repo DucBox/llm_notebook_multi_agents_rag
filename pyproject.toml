@@ -17,6 +17,7 @@ dependencies = [
     "python-magic>=0.4.27",
     "openai>=1.30.0",
     "pgvector>=0.3.0",
+    "FlagEmbedding>=1.2.10",
 ]
 
 [project.optional-dependencies]
