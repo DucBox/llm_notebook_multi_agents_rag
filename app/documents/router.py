@@ -1,5 +1,6 @@
 import json
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,7 +50,7 @@ async def check_duplicate(
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED, response_model=list[UploadResult])
 async def upload_documents(
-    files: list[UploadFile] = File(...),
+    files: Annotated[list[UploadFile], File(description="PDF, TXT, or Markdown files")],
     author: str | None = Form(None),
     metadata: str | None = Form(None, description="JSON string"),
     session: AsyncSession = Depends(get_db),
