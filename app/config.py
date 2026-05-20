@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSION: int = 1536
     EMBEDDING_BATCH_SIZE: int = 100
 
-    GENERATION_MODEL: str = "gpt-4.1-mini"  # override via env: GENERATION_MODEL=gpt-4.1-mini or gpt-4o
+    GENERATION_MODEL: str = "gpt-5.4-mini"
 
     RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
     RERANKER_ENABLED: bool = True
