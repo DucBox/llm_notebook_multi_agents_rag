@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
@@ -23,6 +24,28 @@ app = FastAPI(
 
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(embeddings_router, prefix="/api/v1")
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+    # Patch: list[UploadFile] generates contentMediaType (OAS 3.1) which Swagger UI
+    # doesn't render as a file picker. Force format:binary (OAS 3.0 style) instead.
+    upload_body = schema.get("components", {}).get("schemas", {}).get(
+        "Body_upload_documents_api_v1_documents_post"
+    )
+    if upload_body and "files" in upload_body.get("properties", {}):
+        upload_body["properties"]["files"] = {
+            "type": "array",
+            "items": {"type": "string", "format": "binary"},
+            "description": "PDF, TXT, or Markdown files",
+        }
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = custom_openapi
 
 
 @app.get("/api/v1/health", tags=["system"])
