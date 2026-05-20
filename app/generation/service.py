@@ -1,63 +1,48 @@
-import uuid
-
 from openai import AsyncOpenAI
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.retrieval import service as retrieval_service
 from app.retrieval.schemas import ChunkResult
 
 _SYSTEM_INSTRUCTIONS = """\
-You are LLM Notebook, an assistant that answers questions strictly based on provided document chunks.
+Bạn là LLM Notebook, trợ lý thông minh chuyên phân tích và trả lời câu hỏi dựa trên tài liệu được cung cấp.
 
-Rules:
-- Answer ONLY from the context chunks below. Do not use outside knowledge.
-- Always cite the source: mention the document filename and page number (if available).
-- If the context does not contain enough information, say clearly: "Tôi không tìm thấy thông tin này trong các tài liệu được cung cấp."
-- Be concise and accurate. Respond in the same language as the user's question.
+Quy tắc:
+- Chỉ trả lời dựa trên thông tin trong phần [Information in Documents].
+- Luôn trích dẫn nguồn: ghi rõ tên tài liệu và số trang (nếu có) khi đưa ra thông tin.
+- Nếu không có đủ thông tin để trả lời, hãy phản hồi: "Không có câu trả lời cụ thể vì thiếu thông tin trong tài liệu."
+- Trả lời ngắn gọn, chính xác. Dùng ngôn ngữ giống với câu hỏi của người dùng.
 """
 
 
-def _format_context(chunks: list[ChunkResult]) -> str:
-    parts = []
+def _build_prompt(query: str, chunks: list[ChunkResult]) -> str:
+    lines = ["[Information in Documents]"]
     for i, chunk in enumerate(chunks, 1):
         page_info = f", trang {chunk.page_number}" if chunk.page_number else ""
-        parts.append(
-            f"[{i}] Nguồn: {chunk.document_filename}{page_info}\n{chunk.text_content}"
-        )
-    return "\n\n---\n\n".join(parts)
+        lines.append(f"\n[{i}] Nguồn: {chunk.document_filename}{page_info}")
+        lines.append(chunk.text_content)
+        lines.append("---")
+
+    lines.append("\n[User Query]")
+    lines.append(query)
+
+    return "\n".join(lines)
 
 
 async def generate_answer(
     query: str,
-    session: AsyncSession,
-    top_n: int = 5,
-    retrieve_n: int | None = None,
-    document_ids: list[uuid.UUID] | None = None,
-    user_id: uuid.UUID | None = None,
-) -> tuple[str, list[ChunkResult]]:
-    chunks = await retrieval_service.semantic_search(
-        query=query,
-        top_n=top_n,
-        session=session,
-        retrieve_n=retrieve_n,
-        document_ids=document_ids,
-        user_id=user_id,
-    )
-
+    chunks: list[ChunkResult],
+) -> str:
     if not chunks:
-        return "Tôi không tìm thấy thông tin này trong các tài liệu được cung cấp.", []
+        return "Không có câu trả lời cụ thể vì thiếu thông tin trong tài liệu."
 
-    context = _format_context(chunks)
-    user_message = f"Ngữ cảnh tài liệu:\n\n{context}\n\nCâu hỏi: {query}"
+    prompt = _build_prompt(query, chunks)
 
     client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     response = await client.responses.create(
         model=settings.GENERATION_MODEL,
         reasoning={"effort": "low"},
         instructions=_SYSTEM_INSTRUCTIONS,
-        input=user_message,
+        input=prompt,
     )
 
-    answer = response.output_text
-    return answer, chunks
+    return response.output_text
