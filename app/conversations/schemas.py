@@ -1,0 +1,54 @@
+import uuid
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+from app.retrieval.schemas import ChunkResult
+
+
+class ConversationCreate(BaseModel):
+    user_id: uuid.UUID | None = None
+
+
+class ConversationRead(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID | None
+    status: str
+    total_token_count: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class MessageRead(BaseModel):
+    id: uuid.UUID
+    conversation_id: uuid.UUID
+    role: str
+    content: str
+    token_count: int
+    is_compacted: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ChatRequest(BaseModel):
+    query: str = Field(..., min_length=1)
+    document_ids: list[uuid.UUID] | None = Field(
+        default=None,
+        description="Filter retrieval to specific documents. None = search all.",
+    )
+    top_n: int = Field(default=5, ge=1, le=20)
+    retrieve_n: int | None = Field(default=None, ge=1, le=100)
+
+
+class ChatResponse(BaseModel):
+    conversation_id: uuid.UUID
+    query: str
+    answer: str
+    sources: list[ChunkResult]
+    token_count_this_turn: int
+    total_token_count: int
+    compacting_triggered: bool
+    model: str

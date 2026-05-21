@@ -16,6 +16,9 @@ class Settings(BaseSettings):
 
     GENERATION_MODEL: str = "gpt-5.4-mini"
 
+    CONTEXT_LIMIT_TOKENS: int = 128000
+    COMPACT_THRESHOLD: float = 0.8
+
     RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
     RERANKER_ENABLED: bool = True
     RERANKER_USE_FP16: bool = False  # False = CPU-safe; set True if GPU available

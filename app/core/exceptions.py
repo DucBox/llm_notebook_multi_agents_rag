@@ -41,3 +41,13 @@ class FileTooLargeError(LLMNotebookError):
 
 class DocumentDeletionError(LLMNotebookError):
     pass
+
+
+class ConversationNotFoundError(LLMNotebookError):
+    def __init__(self, conversation_id: str):
+        super().__init__(f"Conversation not found: {conversation_id}")
+
+
+class ConversationCompactingError(LLMNotebookError):
+    def __init__(self, conversation_id: str):
+        super().__init__(f"Conversation {conversation_id} is currently compacting. Please wait.")

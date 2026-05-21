@@ -8,6 +8,8 @@ from sqlalchemy import text
 from app.config import settings
 from app.core.database import async_session_factory
 from app.core.exceptions import (
+    ConversationCompactingError,
+    ConversationNotFoundError,
     DocumentDeletionError,
     DocumentNotFoundError,
     DuplicateDocumentError,
@@ -15,6 +17,7 @@ from app.core.exceptions import (
     InvalidStatusTransitionError,
     UnsupportedFileTypeError,
 )
+from app.conversations.router import router as conversations_router
 from app.documents.router import router as documents_router
 from app.embeddings.router import router as embeddings_router
 from app.generation.router import router as generation_router
@@ -42,6 +45,7 @@ app.include_router(documents_router, prefix="/api/v1")
 app.include_router(embeddings_router, prefix="/api/v1")
 app.include_router(retrieval_router, prefix="/api/v1")
 app.include_router(generation_router, prefix="/api/v1")
+app.include_router(conversations_router, prefix="/api/v1")
 
 
 def custom_openapi():
@@ -119,4 +123,14 @@ async def _too_large(request: Request, exc: FileTooLargeError):
 
 @app.exception_handler(DocumentDeletionError)
 async def _deletion(request: Request, exc: DocumentDeletionError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(ConversationNotFoundError)
+async def _conv_not_found(request: Request, exc: ConversationNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(ConversationCompactingError)
+async def _conv_compacting(request: Request, exc: ConversationCompactingError):
     return JSONResponse(status_code=409, content={"detail": str(exc)})
