@@ -23,6 +23,13 @@ Quy tắc:
 - Trả lời ngắn gọn, chính xác. Dùng ngôn ngữ giống với câu hỏi của người dùng.
 """
 
+_COMPACT_INSTRUCTIONS = """\
+Bạn là công cụ tóm tắt lịch sử hội thoại. Hãy tóm tắt ngắn gọn nội dung hội thoại dưới đây.
+Giữ lại các thông tin quan trọng, sự kiện, kết luận cốt lõi mà người dùng đã hỏi và được trả lời.
+Bản tóm tắt sẽ được dùng làm ngữ cảnh nền cho các câu hỏi tiếp theo trong cùng phiên.
+Trả lời bằng tiếng Việt, ngắn gọn, súc tích.
+"""
+
 
 def _count_tokens(text: str) -> int:
     return len(_ENCODING.encode(text))
@@ -56,7 +63,16 @@ def _build_prompt(
     parts.append("\n[User Query]")
     parts.append(query)
 
-    return "\n".join(parts)
+    prompt = "\n".join(parts)
+
+    # --- DEBUG LOGGING (remove in prod) ---
+    sep = "=" * 60
+    print(f"\n{sep}")
+    print(f"[PROMPT DEBUG] has_compacted={bool(compacted_history)}  active_msgs={len(active_messages)}  chunks={len(chunks)}")
+    print(prompt)
+    print(sep)
+
+    return prompt
 
 
 async def _llm_generate(prompt: str) -> str:
@@ -87,43 +103,51 @@ async def _compact(conv: Conversation, session: AsyncSession) -> None:
 
     try:
         messages = await _get_active_messages(conv.id, session)
-        if not messages:
+
+        # Need at least 2 turns (4 messages) to compact — keep the latest turn active
+        if len(messages) <= 2:
             conv.status = "active"
             await session.commit()
             return
 
+        # Split: compact everything except the last 1 turn (last user + assistant pair)
+        to_compact = messages[:-2]
+        to_keep = messages[-2:]
+
+        # Build input for the compaction LLM call
         history_lines = []
         if conv.compacted_history:
             history_lines.append(f"[Tóm tắt trước đó]\n{conv.compacted_history}\n")
             history_lines.append("[Hội thoại tiếp theo]")
-        for msg in messages:
+        for msg in to_compact:
             role_label = "Người dùng" if msg.role == "user" else "Trợ lý"
             history_lines.append(f"{role_label}: {msg.content}")
-
-        compact_input = (
-            "Hãy tóm tắt ngắn gọn lịch sử hội thoại dưới đây. "
-            "Giữ lại các thông tin quan trọng, sự kiện, kết luận cốt lõi. "
-            "Bản tóm tắt sẽ được dùng làm ngữ cảnh cho các câu hỏi tiếp theo.\n\n"
-            + "\n".join(history_lines)
-        )
 
         client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         resp = await client.responses.create(
             model=settings.GENERATION_MODEL,
-            input=compact_input,
+            instructions=_COMPACT_INSTRUCTIONS,
+            input="\n".join(history_lines),
         )
         summary = resp.output_text
 
-        # Mark all active messages as compacted
+        sep = "=" * 60
+        print(f"\n{sep}")
+        print(f"[COMPACT] compacting {len(to_compact)} msgs → keeping last 1 turn ({len(to_keep)} msgs)")
+        print(f"[COMPACT] summary:\n{summary}")
+        print(sep)
+
+        # Mark only the older messages as compacted, keep the last turn active
+        to_compact_ids = [m.id for m in to_compact]
         await session.execute(
             sa.update(Message)
-            .where(Message.conversation_id == conv.id)
-            .where(Message.is_compacted.is_(False))
+            .where(Message.id.in_(to_compact_ids))
             .values(is_compacted=True)
         )
 
+        kept_tokens = sum(m.token_count for m in to_keep)
         conv.compacted_history = summary
-        conv.total_token_count = _count_tokens(summary)
+        conv.total_token_count = _count_tokens(summary) + kept_tokens
         conv.status = "active"
         await session.commit()
 

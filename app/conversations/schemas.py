@@ -15,6 +15,7 @@ class ConversationRead(BaseModel):
     user_id: uuid.UUID | None
     status: str
     total_token_count: int
+    compacted_history: str | None
     created_at: datetime
     updated_at: datetime
 
