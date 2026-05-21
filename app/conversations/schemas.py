@@ -7,7 +7,7 @@ from app.retrieval.schemas import ChunkResult
 
 
 class ConversationCreate(BaseModel):
-    user_id: uuid.UUID | None = None
+    pass  # user_id is injected from JWT, not accepted from client
 
 
 class ConversationRead(BaseModel):
@@ -44,6 +44,14 @@ class ChatRequest(BaseModel):
     retrieve_n: int | None = Field(default=None, ge=1, le=100)
 
 
+class CompactResponse(BaseModel):
+    conversation_id: uuid.UUID
+    compacted: bool
+    total_token_count: int
+    context_limit_tokens: int
+    usage_pct: float
+
+
 class ChatResponse(BaseModel):
     conversation_id: uuid.UUID
     query: str
@@ -51,5 +59,7 @@ class ChatResponse(BaseModel):
     sources: list[ChunkResult]
     token_count_this_turn: int
     total_token_count: int
+    context_limit_tokens: int
+    usage_pct: float
     compacting_triggered: bool
     model: str

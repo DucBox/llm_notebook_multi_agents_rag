@@ -97,7 +97,7 @@ async def _get_active_messages(conversation_id: uuid.UUID, session: AsyncSession
     return list(rows.scalars().all())
 
 
-async def _compact(conv: Conversation, session: AsyncSession) -> None:
+async def compact_conversation(conv: Conversation, session: AsyncSession) -> None:
     conv.status = "compacting"
     await session.commit()
 
@@ -174,9 +174,10 @@ async def create_conversation(
 async def get_conversation(
     conversation_id: uuid.UUID,
     session: AsyncSession,
+    user_id: uuid.UUID | None = None,
 ) -> Conversation:
     conv = await session.get(Conversation, conversation_id)
-    if conv is None:
+    if conv is None or (user_id is not None and conv.user_id != user_id):
         raise ConversationNotFoundError(str(conversation_id))
     return conv
 
@@ -184,8 +185,9 @@ async def get_conversation(
 async def get_messages(
     conversation_id: uuid.UUID,
     session: AsyncSession,
+    user_id: uuid.UUID | None = None,
 ) -> list[Message]:
-    await get_conversation(conversation_id, session)  # 404 guard
+    await get_conversation(conversation_id, session, user_id)  # 404 + ownership guard
     stmt = (
         sa.select(Message)
         .where(Message.conversation_id == conversation_id)
@@ -199,11 +201,12 @@ async def chat(
     conversation_id: uuid.UUID,
     query: str,
     session: AsyncSession,
+    user_id: uuid.UUID | None = None,
     document_ids: list[uuid.UUID] | None = None,
     top_n: int = 5,
     retrieve_n: int | None = None,
 ) -> dict:
-    conv = await get_conversation(conversation_id, session)
+    conv = await get_conversation(conversation_id, session, user_id)
     if conv.status == "compacting":
         raise ConversationCompactingError(str(conversation_id))
 
@@ -252,7 +255,7 @@ async def chat(
     threshold = int(settings.COMPACT_THRESHOLD * settings.CONTEXT_LIMIT_TOKENS)
     if new_total > threshold:
         compacting_triggered = True
-        await _compact(conv, session)
+        await compact_conversation(conv, session)
 
     return {
         "conversation_id": conversation_id,
@@ -261,6 +264,8 @@ async def chat(
         "sources": chunks,
         "token_count_this_turn": turn_tokens,
         "total_token_count": conv.total_token_count,
+        "context_limit_tokens": settings.CONTEXT_LIMIT_TOKENS,
+        "usage_pct": round(conv.total_token_count / settings.CONTEXT_LIMIT_TOKENS * 100, 1),
         "compacting_triggered": compacting_triggered,
         "model": settings.GENERATION_MODEL,
     }

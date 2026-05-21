@@ -16,8 +16,12 @@ class Settings(BaseSettings):
 
     GENERATION_MODEL: str = "gpt-5.4-mini"
 
-    CONTEXT_LIMIT_TOKENS: int = 128000
+    CONTEXT_LIMIT_TOKENS: int = 1000
     COMPACT_THRESHOLD: float = 0.8
+
+    JWT_SECRET: str = "change-me-in-production-use-a-random-32-byte-hex"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
     RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
     RERANKER_ENABLED: bool = True

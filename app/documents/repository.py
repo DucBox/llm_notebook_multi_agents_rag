@@ -11,30 +11,39 @@ class DocumentRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
 
-    async def get_by_id(self, document_id: uuid.UUID) -> Document | None:
+    async def get_by_id(self, document_id: uuid.UUID, user_id: uuid.UUID) -> Document | None:
         result = await self._session.execute(
             select(Document).where(
                 Document.id == document_id,
+                Document.user_id == user_id,
                 Document.deleted_at.is_(None),
             )
         )
         return result.scalar_one_or_none()
 
-    async def get_by_sha256(self, sha256: str) -> Document | None:
+    async def get_by_sha256(self, sha256: str, user_id: uuid.UUID) -> Document | None:
         result = await self._session.execute(
-            select(Document).where(Document.content_sha256 == sha256)
+            select(Document).where(
+                Document.content_sha256 == sha256,
+                Document.user_id == user_id,
+                Document.deleted_at.is_(None),
+            )
         )
         return result.scalar_one_or_none()
 
     async def list(
         self,
         *,
+        user_id: uuid.UUID,
         status: DocumentStatus | None = None,
         q: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[Document], int]:
-        base = select(Document).where(Document.deleted_at.is_(None))
+        base = select(Document).where(
+            Document.user_id == user_id,
+            Document.deleted_at.is_(None),
+        )
         if status:
             base = base.where(Document.status == status)
         if q:

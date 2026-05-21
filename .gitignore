@@ -11,3 +11,5 @@ storage/documents/*
 dist/
 *.egg-info/
 notes/
+docs/
+*.md

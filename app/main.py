@@ -5,9 +5,11 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.auth.router import router as auth_router
 from app.config import settings
 from app.core.database import async_session_factory
 from app.core.exceptions import (
+    AuthenticationError,
     ConversationCompactingError,
     ConversationNotFoundError,
     DocumentDeletionError,
@@ -41,6 +43,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(auth_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(embeddings_router, prefix="/api/v1")
 app.include_router(retrieval_router, prefix="/api/v1")
@@ -134,3 +137,8 @@ async def _conv_not_found(request: Request, exc: ConversationNotFoundError):
 @app.exception_handler(ConversationCompactingError)
 async def _conv_compacting(request: Request, exc: ConversationCompactingError):
     return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(AuthenticationError)
+async def _auth_error(request: Request, exc: AuthenticationError):
+    return JSONResponse(status_code=401, content={"detail": str(exc)})

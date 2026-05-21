@@ -14,8 +14,8 @@ from app.documents.repository import ChunkRepository, DocumentRepository, JobRep
 from app.documents.schemas import DocumentMetadataUpdate, DocumentStatusUpdate
 
 
-async def check_duplicate(sha256: str, session: AsyncSession) -> Document | None:
-    return await DocumentRepository(session).get_by_sha256(sha256)
+async def check_duplicate(sha256: str, user_id: uuid.UUID, session: AsyncSession) -> Document | None:
+    return await DocumentRepository(session).get_by_sha256(sha256, user_id)
 
 
 async def upload_document(
@@ -23,6 +23,7 @@ async def upload_document(
     filename: str,
     author: str | None,
     metadata: dict,
+    user_id: uuid.UUID,
     session: AsyncSession,
 ) -> Document:
     mime_type = storage.validate_upload(filename, len(file_data))
@@ -30,7 +31,7 @@ async def upload_document(
     doc_id = uuid.uuid4()
     file_path, sha256 = await storage.save_file(file_data, filename, doc_id)
 
-    existing = await DocumentRepository(session).get_by_sha256(sha256)
+    existing = await DocumentRepository(session).get_by_sha256(sha256, user_id)
     if existing and existing.status != DocumentStatus.FAILED:
         await storage.delete_file(str(file_path))
         raise DuplicateDocumentError(str(existing.id))
@@ -47,6 +48,7 @@ async def upload_document(
         author=author,
         metadata_=metadata,
         status=DocumentStatus.PENDING,
+        user_id=user_id,
     ))
 
     job_repo = JobRepository(session)
@@ -75,8 +77,8 @@ async def upload_document(
     return document
 
 
-async def get_document(document_id: uuid.UUID, session: AsyncSession) -> Document:
-    doc = await DocumentRepository(session).get_by_id(document_id)
+async def get_document(document_id: uuid.UUID, user_id: uuid.UUID, session: AsyncSession) -> Document:
+    doc = await DocumentRepository(session).get_by_id(document_id, user_id)
     if not doc:
         raise DocumentNotFoundError(str(document_id))
     return doc
@@ -85,18 +87,21 @@ async def get_document(document_id: uuid.UUID, session: AsyncSession) -> Documen
 async def list_documents(
     session: AsyncSession,
     *,
+    user_id: uuid.UUID,
     status: DocumentStatus | None = None,
     q: str | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[Document], int]:
-    return await DocumentRepository(session).list(status=status, q=q, page=page, page_size=page_size)
+    return await DocumentRepository(session).list(
+        user_id=user_id, status=status, q=q, page=page, page_size=page_size
+    )
 
 
 async def update_status(
-    document_id: uuid.UUID, payload: DocumentStatusUpdate, session: AsyncSession
+    document_id: uuid.UUID, payload: DocumentStatusUpdate, user_id: uuid.UUID, session: AsyncSession
 ) -> Document:
-    doc = await get_document(document_id, session)
+    doc = await get_document(document_id, user_id, session)
     ingestion.validate_status_transition(doc.status, payload.status)
     await DocumentRepository(session).update_status(
         doc, payload.status,
@@ -110,17 +115,17 @@ async def update_status(
 
 
 async def update_metadata(
-    document_id: uuid.UUID, payload: DocumentMetadataUpdate, session: AsyncSession
+    document_id: uuid.UUID, payload: DocumentMetadataUpdate, user_id: uuid.UUID, session: AsyncSession
 ) -> Document:
-    doc = await get_document(document_id, session)
+    doc = await get_document(document_id, user_id, session)
     await DocumentRepository(session).update_metadata(doc, author=payload.author, metadata=payload.metadata)
     await session.commit()
     await session.refresh(doc)
     return doc
 
 
-async def delete_document(document_id: uuid.UUID, session: AsyncSession) -> None:
-    doc = await get_document(document_id, session)
+async def delete_document(document_id: uuid.UUID, user_id: uuid.UUID, session: AsyncSession) -> None:
+    doc = await get_document(document_id, user_id, session)
     if doc.status == DocumentStatus.PROCESSING:
         raise DocumentDeletionError("Cannot delete a document that is currently being processed.")
     await DocumentRepository(session).soft_delete(doc)

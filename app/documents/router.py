@@ -5,6 +5,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 from app.common.schemas import PaginatedResponse
 from app.core.database import get_db
 from app.core.exceptions import (
@@ -39,8 +41,9 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 async def check_duplicate(
     payload: DuplicateCheckRequest,
     session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    existing = await service.check_duplicate(payload.content_sha256, session)
+    existing = await service.check_duplicate(payload.content_sha256, current_user.id, session)
     if existing:
         return DuplicateCheckResponse(exists=True, document_id=existing.id, status=existing.status)
     return DuplicateCheckResponse(exists=False)
@@ -54,6 +57,7 @@ async def upload_documents(
     author: str | None = Form(None),
     metadata: str | None = Form(None, description="JSON string"),
     session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     parsed_metadata: dict = {}
     if metadata:
@@ -73,6 +77,7 @@ async def upload_documents(
                 filename=filename,
                 author=author,
                 metadata=parsed_metadata,
+                user_id=current_user.id,
                 session=session,
             )
             embed_result = await embedding_service.embed_document(doc.id, session)
@@ -103,8 +108,11 @@ async def list_documents(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    docs, total = await service.list_documents(session, status=status, q=q, page=page, page_size=page_size)
+    docs, total = await service.list_documents(
+        session, user_id=current_user.id, status=status, q=q, page=page, page_size=page_size
+    )
     return PaginatedResponse(
         items=[DocumentRead.model_validate(d) for d in docs],
         total=total, page=page, page_size=page_size,
@@ -112,9 +120,13 @@ async def list_documents(
 
 
 @router.get("/{document_id}", response_model=DocumentRead)
-async def get_document(document_id: uuid.UUID, session: AsyncSession = Depends(get_db)):
+async def get_document(
+    document_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     try:
-        doc = await service.get_document(document_id, session)
+        doc = await service.get_document(document_id, current_user.id, session)
     except DocumentNotFoundError:
         raise HTTPException(status_code=404, detail="Document not found")
     return DocumentRead.model_validate(doc)
@@ -125,9 +137,10 @@ async def update_document_metadata(
     document_id: uuid.UUID,
     payload: DocumentMetadataUpdate,
     session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     try:
-        doc = await service.update_metadata(document_id, payload, session)
+        doc = await service.update_metadata(document_id, payload, current_user.id, session)
     except DocumentNotFoundError:
         raise HTTPException(status_code=404, detail="Document not found")
     return DocumentRead.model_validate(doc)
@@ -138,9 +151,10 @@ async def update_document_status(
     document_id: uuid.UUID,
     payload: DocumentStatusUpdate,
     session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     try:
-        doc = await service.update_status(document_id, payload, session)
+        doc = await service.update_status(document_id, payload, current_user.id, session)
     except DocumentNotFoundError:
         raise HTTPException(status_code=404, detail="Document not found")
     except InvalidStatusTransitionError as e:
@@ -149,9 +163,13 @@ async def update_document_status(
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_document(document_id: uuid.UUID, session: AsyncSession = Depends(get_db)):
+async def delete_document(
+    document_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     try:
-        await service.delete_document(document_id, session)
+        await service.delete_document(document_id, current_user.id, session)
     except DocumentNotFoundError:
         raise HTTPException(status_code=404, detail="Document not found")
     except DocumentDeletionError as e:
@@ -167,9 +185,10 @@ async def list_chunks(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     try:
-        await service.get_document(document_id, session)
+        await service.get_document(document_id, current_user.id, session)
     except DocumentNotFoundError:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -187,9 +206,10 @@ async def get_chunk(
     document_id: uuid.UUID,
     chunk_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     try:
-        await service.get_document(document_id, session)
+        await service.get_document(document_id, current_user.id, session)
     except DocumentNotFoundError:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -205,9 +225,10 @@ async def get_chunk(
 async def list_jobs(
     document_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     try:
-        await service.get_document(document_id, session)
+        await service.get_document(document_id, current_user.id, session)
     except DocumentNotFoundError:
         raise HTTPException(status_code=404, detail="Document not found")
 
