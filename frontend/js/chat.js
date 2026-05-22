@@ -107,20 +107,30 @@ const Chat = (() => {
   function _renderSources(sources) {
     if (!sources || !sources.length) return '';
     const items = sources.map((s, i) => `
-      <div class="source-chip" onclick="Documents.openPreviewById('${s.document_id}')" title="Bấm để xem tài liệu gốc">
-        <div class="source-chip-header">
-          <span class="source-chip-link">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
+      <div class="source-chip">
+        <div class="source-chip-header" onclick="Chat._toggleChip(this)">
+          <span class="source-chip-label">
+            <svg class="source-chip-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
             </svg>
             [${i+1}] ${_esc(s.document_filename)}${s.page_number ? ` · Trang ${s.page_number}` : ''}
           </span>
-          <span style="font-weight:400;color:var(--text-muted);">
-            ${s.rerank_score != null ? `score: ${s.rerank_score}` : `score: ${s.score}`}
-          </span>
+          <span class="source-chip-score">${s.rerank_score != null ? s.rerank_score : s.score}</span>
         </div>
-        <div class="source-chip-text">${_esc(s.text_content)}</div>
+        <div class="source-chip-body">
+          <div class="source-chip-text md-body">${marked.parse(s.text_content)}</div>
+          <button class="source-open-doc" onclick="Documents.openPreviewById('${s.document_id}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+              <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            Xem tài liệu gốc
+          </button>
+        </div>
       </div>
     `).join('');
 
@@ -140,6 +150,11 @@ const Chat = (() => {
   function _toggleSources(btn) {
     btn.classList.toggle('open');
     btn.nextElementSibling.classList.toggle('open');
+  }
+
+  function _toggleChip(header) {
+    const chip = header.closest('.source-chip');
+    chip.classList.toggle('open');
   }
 
   function _appendMessage(role, content, sources) {
@@ -291,5 +306,5 @@ const Chat = (() => {
     document.getElementById('compact-btn').addEventListener('click', manualCompact);
   }
 
-  return { init, loadConversation, _toggleSources };
+  return { init, loadConversation, _toggleSources, _toggleChip };
 })();
