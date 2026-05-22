@@ -9,19 +9,101 @@ const Chat = (() => {
     const clamped = Math.min(usagePct, 100);
     arc.setAttribute('stroke-dasharray', `${clamped} 100`);
     pct.textContent = `${Math.round(clamped)}%`;
-
     arc.classList.remove('warn', 'crit');
     if (clamped >= 80) arc.classList.add('crit');
     else if (clamped >= 60) arc.classList.add('warn');
   }
 
-  // ── Message rendering ────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────
   function _esc(str) {
     return String(str)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  function _scrollBottom() {
+    const el = document.getElementById('messages');
+    el.scrollTop = el.scrollHeight;
+  }
+
+  // ── Compact UI blocks ────────────────────────────────────
+  function _showCompactingIndicator() {
+    const el = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'compact-divider';
+    div.id = 'compacting-indicator';
+    div.innerHTML = `
+      <span class="compact-dots">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </span>
+      Đang compact context…
+    `;
+    el.appendChild(div);
+    _scrollBottom();
+    return div;
+  }
+
+  function _replaceWithDoneBlock(indicatorEl, compactedHistory) {
+    const container = document.createElement('div');
+    container.className = 'compact-done-block';
+
+    const badge = document.createElement('div');
+    badge.className = 'compact-divider done';
+    badge.textContent = '— Context đã được compact —';
+    container.appendChild(badge);
+
+    if (compactedHistory) {
+      const toggle = document.createElement('div');
+      toggle.className = 'compact-history-toggle';
+      toggle.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+        Xem nội dung đã tóm tắt
+      `;
+      const body = document.createElement('div');
+      body.className = 'compact-history-body';
+      body.innerHTML = `<div class="md-body">${marked.parse(compactedHistory)}</div>`;
+
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('open');
+        body.classList.toggle('open');
+      });
+
+      container.appendChild(toggle);
+      container.appendChild(body);
+    }
+
+    indicatorEl.replaceWith(container);
+    _scrollBottom();
+  }
+
+  // ── Rebuild messages area after compact ──────────────────
+  async function _reloadAfterCompact(usagePct, totalTokens, contextLimit) {
+    const [conv, messages] = await Promise.all([
+      API.listConversations().then(list => list.find(c => c.id === _convId)),
+      API.getMessages(_convId),
+    ]);
+
+    const msgEl = document.getElementById('messages');
+    msgEl.innerHTML = '';
+
+    const indicator = _showCompactingIndicator();
+
+    // Small delay so user sees the "compacting..." state briefly
+    await new Promise(r => setTimeout(r, 400));
+
+    // Re-render only active (non-compacted) messages
+    messages.forEach(m => {
+      if (!m.is_compacted) _appendMessage(m.role, m.content, []);
+    });
+
+    _replaceWithDoneBlock(indicator, conv?.compacted_history ?? null);
+    _updateCircle(usagePct);
+    Sessions.updateTokenDisplay(_convId, totalTokens, contextLimit, usagePct);
+  }
+
+  // ── Message rendering ────────────────────────────────────
   function _renderSources(sources) {
     if (!sources || !sources.length) return '';
     const items = sources.map((s, i) => `
@@ -68,7 +150,7 @@ const Chat = (() => {
       </div>
     `;
     el.appendChild(div);
-    el.scrollTop = el.scrollHeight;
+    _scrollBottom();
     return div;
   }
 
@@ -79,7 +161,7 @@ const Chat = (() => {
     div.id = 'typing-indicator';
     div.innerHTML = '<div class="msg-bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
     el.appendChild(div);
-    el.scrollTop = el.scrollHeight;
+    _scrollBottom();
   }
 
   function _removeTyping() {
@@ -99,6 +181,13 @@ const Chat = (() => {
         API.getMessages(convId),
         API.listConversations().then(list => list.find(c => c.id === convId)),
       ]);
+
+      // Show compact history block if exists (from previous compact)
+      if (conv?.compacted_history) {
+        const placeholder = document.createElement('div');
+        msgEl.appendChild(placeholder);
+        _replaceWithDoneBlock(placeholder, conv.compacted_history);
+      }
 
       messages.forEach(m => {
         if (!m.is_compacted) _appendMessage(m.role, m.content, []);
@@ -142,7 +231,7 @@ const Chat = (() => {
       Sessions.updateTokenDisplay(_convId, res.total_token_count, res.context_limit_tokens, res.usage_pct);
 
       if (res.compacting_triggered) {
-        _showCompactBadge();
+        await _reloadAfterCompact(res.usage_pct, res.total_token_count, res.context_limit_tokens);
       }
     } catch (err) {
       _removeTyping();
@@ -153,27 +242,22 @@ const Chat = (() => {
     }
   }
 
-  function _showCompactBadge() {
-    const el = document.getElementById('messages');
-    const div = document.createElement('div');
-    div.style.cssText = 'text-align:center;padding:8px;font-size:12px;color:var(--text-muted);';
-    div.textContent = '— Lịch sử đã được compact tự động —';
-    el.appendChild(div);
-    el.scrollTop = el.scrollHeight;
-  }
-
   // ── Manual compact ───────────────────────────────────────
   async function manualCompact() {
-    if (!_convId) return;
+    if (!_convId || _sending) return;
     const btn = document.getElementById('compact-btn');
     btn.style.opacity = '.5';
     btn.style.pointerEvents = 'none';
+
+    const indicator = _showCompactingIndicator();
+
     try {
       const res = await API.compact(_convId);
-      _updateCircle(res.usage_pct);
-      _showCompactBadge();
-      Sessions.updateTokenDisplay(_convId, res.total_token_count, res.context_limit_tokens, res.usage_pct);
+      await _reloadAfterCompact(res.usage_pct, res.total_token_count, res.context_limit_tokens);
+      // _reloadAfterCompact rebuilds entire message area including the done block
+      // but the indicator was appended before reload, so it's gone — that's fine
     } catch (err) {
+      indicator?.remove();
       alert(`Không compact được: ${err.message}`);
     } finally {
       btn.style.opacity = '';
@@ -185,13 +269,11 @@ const Chat = (() => {
     const input   = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
 
-    // Auto-grow textarea
     input.addEventListener('input', () => {
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 160) + 'px';
     });
 
-    // Send on Enter (Shift+Enter = newline)
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();

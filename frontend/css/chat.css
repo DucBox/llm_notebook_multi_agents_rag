@@ -211,6 +211,62 @@
 .md-body hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
 .md-body a { color: var(--primary); }
 
+/* ── Compact UI ──────────────────────────────────────────── */
+.compact-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.compact-divider::before,
+.compact-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.compact-divider.done { color: var(--primary); font-weight: 500; }
+.compact-divider .compact-dots { display: flex; gap: 3px; }
+.compact-divider .compact-dots .dot { width: 5px; height: 5px; }
+
+.compact-done-block {
+  padding: 0 20px;
+  margin: 4px 0;
+}
+
+.compact-history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 6px 0 4px;
+  width: fit-content;
+  user-select: none;
+}
+.compact-history-toggle svg { transition: transform .2s; }
+.compact-history-toggle.open svg { transform: rotate(90deg); }
+
+.compact-history-body {
+  display: none;
+  background: #f0f8ff;
+  border: 1px solid #c5d8f5;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.compact-history-body.open { display: block; }
+
 /* Typing indicator */
 .msg-typing .msg-bubble {
   display: flex;
