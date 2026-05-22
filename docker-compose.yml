@@ -29,6 +29,14 @@ services:
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
       EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-100}
       GENERATION_MODEL: ${GENERATION_MODEL:-gpt-5.4-mini}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-a-random-32-byte-hex}
+      RERANKER_ENABLED: ${RERANKER_ENABLED:-true}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OFFLINE_EMBEDDING_MODEL: ${OFFLINE_EMBEDDING_MODEL:-nomic-embed-text}
+      OFFLINE_EMBEDDING_DIMENSION: ${OFFLINE_EMBEDDING_DIMENSION:-768}
+      OFFLINE_LLM_MODEL: ${OFFLINE_LLM_MODEL:-qwen2.5:3b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - document_storage:/app/storage/documents
       - hf_cache:/root/.cache/huggingface

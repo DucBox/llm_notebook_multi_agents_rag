@@ -229,6 +229,9 @@ const Chat = (() => {
     sendBtn.disabled = true;
 
     const rerank      = document.getElementById('rerank-select').value === 'true';
+    const mode        = document.querySelector('.mode-btn.active')?.dataset.mode ?? 'online';
+    const modelVal    = document.getElementById('model-select').value;
+    const model       = modelVal || null;
     const documentIds = Documents.getSelectedIds();
 
     _appendMessage('user', query, null);
@@ -238,9 +241,11 @@ const Chat = (() => {
       const res = await API.chat(_convId, {
         query,
         rerank,
+        mode,
+        model,
         document_ids: documentIds,
-        top_n: 5,
-        retrieve_n: rerank ? 10 : 5,
+        top_n: 10,
+        retrieve_n: 20,
       });
 
       _removeTyping();

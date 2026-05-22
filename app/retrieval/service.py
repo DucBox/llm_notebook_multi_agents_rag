@@ -6,16 +6,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.documents.models import Document, DocumentChunk
+from app.embeddings.providers.ollama import OllamaEmbeddingProvider
 from app.embeddings.providers.openai import OpenAIEmbeddingProvider
 from app.retrieval import reranker as reranker_module
 from app.retrieval.schemas import ChunkResult
 
 
-def _get_provider() -> OpenAIEmbeddingProvider:
+def _get_online_provider() -> OpenAIEmbeddingProvider:
     return OpenAIEmbeddingProvider(
         api_key=settings.OPENAI_API_KEY,
         model=settings.EMBEDDING_MODEL,
         dimension=settings.EMBEDDING_DIMENSION,
+    )
+
+
+def _get_offline_provider() -> OllamaEmbeddingProvider:
+    return OllamaEmbeddingProvider(
+        base_url=settings.OLLAMA_BASE_URL,
+        model=settings.OFFLINE_EMBEDDING_MODEL,
+        dimension=settings.OFFLINE_EMBEDDING_DIMENSION,
     )
 
 
@@ -27,15 +36,26 @@ async def semantic_search(
     document_ids: list[uuid.UUID] | None = None,
     user_id: uuid.UUID | None = None,
     rerank: bool = False,
+    mode: str = "online",
 ) -> list[ChunkResult]:
-    provider = _get_provider()
+    offline = mode == "offline"
+
+    if offline:
+        provider = _get_offline_provider()
+        embedding_col = DocumentChunk.embedding_offline
+        dim = settings.OFFLINE_EMBEDDING_DIMENSION
+    else:
+        provider = _get_online_provider()
+        embedding_col = DocumentChunk.embedding
+        dim = settings.EMBEDDING_DIMENSION
+
     vectors = await provider.embed([query])
     query_vector = vectors[0]
 
     candidates_n = retrieve_n if rerank else top_n
 
-    cast_vec = sa.cast(query_vector, Vector(settings.EMBEDDING_DIMENSION))
-    distance_col = DocumentChunk.embedding.op("<=>", return_type=sa.Float)(cast_vec).label("distance")
+    cast_vec = sa.cast(query_vector, Vector(dim))
+    distance_col = embedding_col.op("<=>", return_type=sa.Float)(cast_vec).label("distance")
 
     stmt = (
         sa.select(
@@ -51,7 +71,7 @@ async def semantic_search(
             distance_col,
         )
         .join(Document, Document.id == DocumentChunk.document_id)
-        .where(DocumentChunk.embedding.is_not(None))
+        .where(embedding_col.is_not(None))
         .where(Document.deleted_at.is_(None))
         .order_by(distance_col.asc())
         .limit(candidates_n)

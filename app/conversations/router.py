@@ -65,6 +65,8 @@ async def list_messages(
     return await service.get_messages(conversation_id, session, current_user.id)
 
 
+
+
 @router.post("/{conversation_id}/compact", response_model=CompactResponse)
 async def manual_compact(
     conversation_id: uuid.UUID,
@@ -101,4 +103,6 @@ async def chat(
         top_n=payload.top_n,
         retrieve_n=payload.retrieve_n,
         rerank=payload.rerank,
+        mode=payload.mode,
+        model=payload.model,
     )

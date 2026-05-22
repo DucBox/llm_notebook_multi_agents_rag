@@ -21,6 +21,7 @@ dependencies = [
     "transformers>=4.40.0,<4.50.0",
     "python-jose[cryptography]>=3.3.0",
     "bcrypt>=4.0.0",
+    "httpx>=0.28.0",
 ]
 
 [project.optional-dependencies]

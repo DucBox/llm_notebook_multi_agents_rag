@@ -75,6 +75,28 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
+@app.get("/api/v1/models", tags=["system"])
+async def list_models():
+    """Return available online and offline (Ollama) models."""
+    import httpx
+    online = [settings.GENERATION_MODEL]
+
+    offline: list[str] = []
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"{settings.OLLAMA_BASE_URL}/api/tags")
+            resp.raise_for_status()
+            models = resp.json().get("models", [])
+            offline = [
+                m["name"] for m in models
+                if "embed" not in m["name"].lower()
+            ]
+    except Exception:
+        pass  # Ollama not running — offline list stays empty
+
+    return {"online": online, "offline": offline}
+
+
 @app.get("/api/v1/health", tags=["system"])
 async def health_check():
     from pathlib import Path

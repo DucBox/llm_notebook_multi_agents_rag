@@ -23,6 +23,20 @@ Quy tắc:
 - Trả lời ngắn gọn, chính xác. Dùng ngôn ngữ giống với câu hỏi của người dùng.
 """
 
+# Offline prompt template — English works better than Vietnamese for qwen2.5 to follow rules.
+# {model_name} is substituted at call time.
+_SYSTEM_INSTRUCTIONS_OFFLINE_TMPL = """\
+You are {model_name}, a large language model hosted by Ngô Quang Đức to serve offline tasks on local infrastructure.
+You act as an intelligent assistant specializing in analyzing and answering questions based on provided documents.
+
+Rules:
+- Only answer based on information found in the [Information in Documents] section.
+- Always cite sources: mention the document name and page number (if available).
+- If there is insufficient information, respond: "Không có câu trả lời cụ thể vì thiếu thông tin trong tài liệu."
+- Be concise and accurate.
+- IMPORTANT: Always respond in the SAME language as the user's question. If the user asks in Vietnamese, respond in Vietnamese. Do NOT respond in Chinese.
+"""
+
 _COMPACT_INSTRUCTIONS = """\
 Bạn là công cụ tóm tắt lịch sử hội thoại. Hãy tóm tắt ngắn gọn nội dung hội thoại dưới đây.
 Giữ lại các thông tin quan trọng, sự kiện, kết luận cốt lõi mà người dùng đã hỏi và được trả lời.
@@ -75,7 +89,28 @@ def _build_prompt(
     return prompt
 
 
-async def _llm_generate(prompt: str) -> str:
+def _sanitize(text: str) -> str:
+    """Strip control characters that break JSON serialization (e.g. qwen think tokens)."""
+    return "".join(ch for ch in text if ch >= " " or ch in "\t\n\r")
+
+
+async def _llm_generate(prompt: str, mode: str = "online", model: str | None = None) -> str:
+    if mode == "offline":
+        actual_model = model or settings.OFFLINE_LLM_MODEL
+        system_prompt = _SYSTEM_INSTRUCTIONS_OFFLINE_TMPL.format(model_name=actual_model)
+        client = AsyncOpenAI(
+            api_key="ollama",
+            base_url=f"{settings.OLLAMA_BASE_URL}/v1",
+        )
+        response = await client.chat.completions.create(
+            model=actual_model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return _sanitize(response.choices[0].message.content or "")
+
     client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     response = await client.responses.create(
         model=settings.GENERATION_MODEL,
@@ -91,7 +126,7 @@ async def _get_active_messages(conversation_id: uuid.UUID, session: AsyncSession
         sa.select(Message)
         .where(Message.conversation_id == conversation_id)
         .where(Message.is_compacted.is_(False))
-        .order_by(Message.created_at)
+        .order_by(Message.created_at, sa.case((Message.role == "user", 0), else_=1))
     )
     rows = await session.execute(stmt)
     return list(rows.scalars().all())
@@ -214,7 +249,7 @@ async def get_messages(
     stmt = (
         sa.select(Message)
         .where(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at)
+        .order_by(Message.created_at, sa.case((Message.role == "user", 0), else_=1))
     )
     rows = await session.execute(stmt)
     return list(rows.scalars().all())
@@ -226,9 +261,11 @@ async def chat(
     session: AsyncSession,
     user_id: uuid.UUID | None = None,
     document_ids: list[uuid.UUID] | None = None,
-    top_n: int = 5,
-    retrieve_n: int = 10,
+    top_n: int = 10,
+    retrieve_n: int = 20,
     rerank: bool = False,
+    mode: str = "online",
+    model: str | None = None,
 ) -> dict:
     conv = await get_conversation(conversation_id, session, user_id)
     if conv.status == "compacting":
@@ -242,6 +279,7 @@ async def chat(
         document_ids=document_ids,
         user_id=conv.user_id,
         rerank=rerank,
+        mode=mode,
     )
 
     # Load active history and build prompt
@@ -249,19 +287,24 @@ async def chat(
     prompt = _build_prompt(query, chunks, active_messages, conv.compacted_history)
 
     # Generate answer
-    answer = await _llm_generate(prompt)
+    answer = await _llm_generate(prompt, mode=mode, model=model)
 
     # Count tokens and persist messages
     user_tokens = _count_tokens(query)
     assistant_tokens = _count_tokens(answer)
     turn_tokens = user_tokens + assistant_tokens
 
+    # Commit user message first so it gets an earlier created_at than the
+    # assistant message — both in the same transaction would share now() timestamp
+    # and ordering would be non-deterministic on reload.
     session.add(Message(
         conversation_id=conversation_id,
         role="user",
         content=query,
         token_count=user_tokens,
     ))
+    await session.commit()
+
     session.add(Message(
         conversation_id=conversation_id,
         role="assistant",
@@ -292,5 +335,6 @@ async def chat(
         "context_limit_tokens": settings.CONTEXT_LIMIT_TOKENS,
         "usage_pct": round(conv.total_token_count / settings.CONTEXT_LIMIT_TOKENS * 100, 1),
         "compacting_triggered": compacting_triggered,
-        "model": settings.GENERATION_MODEL,
+        "model": (model or settings.OFFLINE_LLM_MODEL) if mode == "offline" else settings.GENERATION_MODEL,
+        "mode": mode,
     }

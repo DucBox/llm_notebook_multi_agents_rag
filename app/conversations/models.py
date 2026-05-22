@@ -18,7 +18,8 @@ class Conversation(Base, TimestampMixin):
     compacted_history: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     messages: Mapped[list["Message"]] = relationship(
-        "Message", back_populates="conversation", order_by="Message.created_at"
+        "Message", back_populates="conversation", order_by="Message.created_at",
+        passive_deletes=True,
     )
 
 

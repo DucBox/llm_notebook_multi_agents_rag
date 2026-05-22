@@ -80,6 +80,7 @@ class DocumentChunk(Base, TimestampMixin):
     char_offset_end: Mapped[int] = mapped_column(Integer, nullable=False)
     content_sha256: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
+    embedding_offline: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
 
     document: Mapped["Document"] = relationship("Document", back_populates="chunks")

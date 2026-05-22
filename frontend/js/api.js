@@ -30,6 +30,7 @@ const API = (() => {
   return {
     // System
     health: () => fetch('/api/v1/health').then(r => r.json()),
+    getModels: () => fetch('/api/v1/models').then(r => r.json()),
 
     // Auth
     register: (email, password) =>
