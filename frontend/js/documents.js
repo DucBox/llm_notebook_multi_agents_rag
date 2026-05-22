@@ -236,7 +236,10 @@ const Documents = (() => {
   }
 
   function getSelectedIds() {
-    return _selectedIds.size > 0 ? [..._selectedIds] : null;
+    // [] = no docs selected → backend retrieves nothing
+    // [id1, ...] = filter to selected docs
+    // null is never returned — always explicit
+    return [..._selectedIds];
   }
 
   function init() {

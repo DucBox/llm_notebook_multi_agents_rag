@@ -59,7 +59,7 @@ async def semantic_search(
 
     if user_id:
         stmt = stmt.where(Document.user_id == user_id)
-    if document_ids:
+    if document_ids is not None:
         stmt = stmt.where(DocumentChunk.document_id.in_(document_ids))
 
     rows = (await session.execute(stmt)).mappings().all()
