@@ -58,9 +58,12 @@ const Chat = (() => {
     const el = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = `msg-row ${role}`;
+    const body = role === 'assistant'
+      ? `<div class="md-body">${marked.parse(content)}</div>`
+      : `<div class="user-text">${_esc(content)}</div>`;
     div.innerHTML = `
       <div class="msg-bubble">
-        ${_esc(content)}
+        ${body}
         ${role === 'assistant' ? _renderSources(sources) : ''}
       </div>
     `;
@@ -98,7 +101,7 @@ const Chat = (() => {
       ]);
 
       messages.forEach(m => {
-        if (!m.is_compacted) _appendMessage(m.role, m.content, null);
+        if (!m.is_compacted) _appendMessage(m.role, m.content, []);
       });
 
       if (conv) _updateCircle(
