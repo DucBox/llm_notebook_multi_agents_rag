@@ -15,6 +15,7 @@ from app.conversations.schemas import (
     ConversationRead,
     MessageRead,
 )
+
 from app.core.database import get_db
 from app.core.exceptions import ConversationCompactingError
 
@@ -103,6 +104,5 @@ async def chat(
         top_n=payload.top_n,
         retrieve_n=payload.retrieve_n,
         rerank=payload.rerank,
-        mode=payload.mode,
         model=payload.model,
     )

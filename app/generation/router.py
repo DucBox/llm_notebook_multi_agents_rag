@@ -22,5 +22,5 @@ async def generate(
         query=payload.query,
         answer=answer,
         sources=payload.chunks,
-        model=settings.GENERATION_MODEL,
+        model=settings.LLM_MODEL,
     )

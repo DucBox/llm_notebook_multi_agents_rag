@@ -9,12 +9,7 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 50
     APP_VERSION: str = "1.0.0"
 
-    OPENAI_API_KEY: str = ""
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
-    EMBEDDING_DIMENSION: int = 1536
     EMBEDDING_BATCH_SIZE: int = 100
-
-    GENERATION_MODEL: str = "gpt-5.4-mini"
 
     CONTEXT_LIMIT_TOKENS: int = 64000
     COMPACT_THRESHOLD: float = 0.8
@@ -28,9 +23,9 @@ class Settings(BaseSettings):
     RERANKER_USE_FP16: bool = False  # False = CPU-safe; set True if GPU available
 
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OFFLINE_EMBEDDING_MODEL: str = "nomic-embed-text"
-    OFFLINE_EMBEDDING_DIMENSION: int = 768
-    OFFLINE_LLM_MODEL: str = "qwen2.5:3b"
+    EMBEDDING_MODEL: str = "nomic-embed-text"
+    EMBEDDING_DIMENSION: int = 768
+    LLM_MODEL: str = "qwen2.5:3b"
 
     @property
     def max_file_size_bytes(self) -> int:

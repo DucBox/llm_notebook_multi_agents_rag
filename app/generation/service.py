@@ -1,16 +1,18 @@
-from openai import AsyncOpenAI
+import httpx
 
 from app.config import settings
 from app.retrieval.schemas import ChunkResult
 
 _SYSTEM_INSTRUCTIONS = """\
-Bạn là LLM Notebook, trợ lý thông minh chuyên phân tích và trả lời câu hỏi dựa trên tài liệu được cung cấp.
+You are LLM Notebook, an intelligent assistant specializing in analyzing and answering questions based on provided documents.
+Hosted on local infrastructure by Ngô Quang Đức.
 
-Quy tắc:
-- Chỉ trả lời dựa trên thông tin trong phần [Information in Documents].
-- Luôn trích dẫn nguồn: ghi rõ tên tài liệu và số trang (nếu có) khi đưa ra thông tin.
-- Nếu không có đủ thông tin để trả lời, hãy phản hồi: "Không có câu trả lời cụ thể vì thiếu thông tin trong tài liệu."
-- Trả lời ngắn gọn, chính xác. Dùng ngôn ngữ giống với câu hỏi của người dùng.
+Rules:
+- Only answer based on information found in the [Information in Documents] section.
+- Always cite sources: mention the document name and page number (if available).
+- If there is insufficient information, respond: "Không có câu trả lời cụ thể vì thiếu thông tin trong tài liệu."
+- Be concise and accurate.
+- IMPORTANT: Always respond in the SAME language as the user's question.
 """
 
 
@@ -37,12 +39,16 @@ async def generate_answer(
 
     prompt = _build_prompt(query, chunks)
 
-    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-    response = await client.responses.create(
-        model=settings.GENERATION_MODEL,
-        reasoning={"effort": "low"},
-        instructions=_SYSTEM_INSTRUCTIONS,
-        input=prompt,
-    )
-
-    return response.output_text
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        resp = await client.post(
+            f"{settings.OLLAMA_BASE_URL}/v1/chat/completions",
+            json={
+                "model": settings.LLM_MODEL,
+                "messages": [
+                    {"role": "system", "content": _SYSTEM_INSTRUCTIONS},
+                    {"role": "user", "content": prompt},
+                ],
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"] or ""

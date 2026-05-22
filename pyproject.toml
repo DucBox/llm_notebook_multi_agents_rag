@@ -15,7 +15,6 @@ dependencies = [
     "tiktoken>=0.8.0",
     "aiofiles>=24.1.0",
     "python-magic>=0.4.27",
-    "openai>=1.30.0",
     "pgvector>=0.3.0",
     "FlagEmbedding>=1.2.10",
     "transformers>=4.40.0,<4.50.0",

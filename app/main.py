@@ -77,24 +77,21 @@ app.openapi = custom_openapi
 
 @app.get("/api/v1/models", tags=["system"])
 async def list_models():
-    """Return available online and offline (Ollama) models."""
+    """Return available LLM models from Ollama."""
     import httpx
-    online = [settings.GENERATION_MODEL]
-
-    offline: list[str] = []
+    models: list[str] = []
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             resp = await client.get(f"{settings.OLLAMA_BASE_URL}/api/tags")
             resp.raise_for_status()
-            models = resp.json().get("models", [])
-            offline = [
-                m["name"] for m in models
+            data = resp.json().get("models", [])
+            models = [
+                m["name"] for m in data
                 if "embed" not in m["name"].lower()
             ]
     except Exception:
-        pass  # Ollama not running — offline list stays empty
-
-    return {"online": online, "offline": offline}
+        pass
+    return {"models": models}
 
 
 @app.get("/api/v1/health", tags=["system"])
@@ -115,7 +112,7 @@ async def health_check():
         storage_status = "error"
 
     overall = "ok" if db_status == "ok" and storage_status == "ok" else "degraded"
-    return {"status": overall, "db": db_status, "storage": storage_status, "version": settings.APP_VERSION, "generation_model": settings.GENERATION_MODEL}
+    return {"status": overall, "db": db_status, "storage": storage_status, "version": settings.APP_VERSION, "llm_model": settings.LLM_MODEL}
 
 
 # ── Global exception handlers ──────────────────────────────────────────────────

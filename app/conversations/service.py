@@ -1,8 +1,8 @@
 import uuid
 
+import httpx
 import sqlalchemy as sa
 import tiktoken
-from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -14,20 +14,8 @@ from app.retrieval.schemas import ChunkResult
 _ENCODING = tiktoken.get_encoding("cl100k_base")
 
 _SYSTEM_INSTRUCTIONS = """\
-Bạn là LLM Notebook, trợ lý thông minh chuyên phân tích và trả lời câu hỏi dựa trên tài liệu được cung cấp.
-
-Quy tắc:
-- Chỉ trả lời dựa trên thông tin trong phần [Information in Documents].
-- Luôn trích dẫn nguồn: ghi rõ tên tài liệu và số trang (nếu có) khi đưa ra thông tin.
-- Nếu không có đủ thông tin để trả lời, hãy phản hồi: "Không có câu trả lời cụ thể vì thiếu thông tin trong tài liệu."
-- Trả lời ngắn gọn, chính xác. Dùng ngôn ngữ giống với câu hỏi của người dùng.
-"""
-
-# Offline prompt template — English works better than Vietnamese for qwen2.5 to follow rules.
-# {model_name} is substituted at call time.
-_SYSTEM_INSTRUCTIONS_OFFLINE_TMPL = """\
-You are {model_name}, a large language model hosted by Ngô Quang Đức to serve offline tasks on local infrastructure.
-You act as an intelligent assistant specializing in analyzing and answering questions based on provided documents.
+You are LLM Notebook, an intelligent assistant specializing in analyzing and answering questions based on provided documents.
+Hosted on local infrastructure by Ngô Quang Đức.
 
 Rules:
 - Only answer based on information found in the [Information in Documents] section.
@@ -38,10 +26,10 @@ Rules:
 """
 
 _COMPACT_INSTRUCTIONS = """\
-Bạn là công cụ tóm tắt lịch sử hội thoại. Hãy tóm tắt ngắn gọn nội dung hội thoại dưới đây.
-Giữ lại các thông tin quan trọng, sự kiện, kết luận cốt lõi mà người dùng đã hỏi và được trả lời.
-Bản tóm tắt sẽ được dùng làm ngữ cảnh nền cho các câu hỏi tiếp theo trong cùng phiên.
-Trả lời bằng tiếng Việt, ngắn gọn, súc tích.
+You are a conversation summarizer. Summarize the conversation history below concisely.
+Retain important facts, events, and key conclusions from what the user asked and what was answered.
+The summary will be used as background context for follow-up questions in the same session.
+Respond in the same language as the conversation (Vietnamese if the conversation is in Vietnamese).
 """
 
 
@@ -77,16 +65,7 @@ def _build_prompt(
     parts.append("\n[User Query]")
     parts.append(query)
 
-    prompt = "\n".join(parts)
-
-    # --- DEBUG LOGGING (remove in prod) ---
-    sep = "=" * 60
-    print(f"\n{sep}")
-    print(f"[PROMPT DEBUG] has_compacted={bool(compacted_history)}  active_msgs={len(active_messages)}  chunks={len(chunks)}")
-    print(prompt)
-    print(sep)
-
-    return prompt
+    return "\n".join(parts)
 
 
 def _sanitize(text: str) -> str:
@@ -94,31 +73,37 @@ def _sanitize(text: str) -> str:
     return "".join(ch for ch in text if ch >= " " or ch in "\t\n\r")
 
 
-async def _llm_generate(prompt: str, mode: str = "online", model: str | None = None) -> str:
-    if mode == "offline":
-        actual_model = model or settings.OFFLINE_LLM_MODEL
-        system_prompt = _SYSTEM_INSTRUCTIONS_OFFLINE_TMPL.format(model_name=actual_model)
-        client = AsyncOpenAI(
-            api_key="ollama",
-            base_url=f"{settings.OLLAMA_BASE_URL}/v1",
+async def _llm_generate(prompt: str, model: str | None = None) -> str:
+    actual_model = model or settings.LLM_MODEL
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        resp = await client.post(
+            f"{settings.OLLAMA_BASE_URL}/v1/chat/completions",
+            json={
+                "model": actual_model,
+                "messages": [
+                    {"role": "system", "content": _SYSTEM_INSTRUCTIONS},
+                    {"role": "user", "content": prompt},
+                ],
+            },
         )
-        response = await client.chat.completions.create(
-            model=actual_model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        return _sanitize(response.choices[0].message.content or "")
+        resp.raise_for_status()
+        return _sanitize(resp.json()["choices"][0]["message"]["content"] or "")
 
-    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-    response = await client.responses.create(
-        model=settings.GENERATION_MODEL,
-        reasoning={"effort": "low"},
-        instructions=_SYSTEM_INSTRUCTIONS,
-        input=prompt,
-    )
-    return response.output_text
+
+async def _llm_compact(history_text: str) -> str:
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        resp = await client.post(
+            f"{settings.OLLAMA_BASE_URL}/v1/chat/completions",
+            json={
+                "model": settings.LLM_MODEL,
+                "messages": [
+                    {"role": "system", "content": _COMPACT_INSTRUCTIONS},
+                    {"role": "user", "content": history_text},
+                ],
+            },
+        )
+        resp.raise_for_status()
+        return _sanitize(resp.json()["choices"][0]["message"]["content"] or "")
 
 
 async def _get_active_messages(conversation_id: uuid.UUID, session: AsyncSession) -> list[Message]:
@@ -139,17 +124,14 @@ async def compact_conversation(conv: Conversation, session: AsyncSession) -> Non
     try:
         messages = await _get_active_messages(conv.id, session)
 
-        # Need at least 2 turns (4 messages) to compact — keep the latest turn active
         if len(messages) <= 2:
             conv.status = "active"
             await session.commit()
             return
 
-        # Split: compact everything except the last 1 turn (last user + assistant pair)
         to_compact = messages[:-2]
         to_keep = messages[-2:]
 
-        # Build input for the compaction LLM call
         history_lines = []
         if conv.compacted_history:
             history_lines.append(f"[Tóm tắt trước đó]\n{conv.compacted_history}\n")
@@ -158,21 +140,8 @@ async def compact_conversation(conv: Conversation, session: AsyncSession) -> Non
             role_label = "Người dùng" if msg.role == "user" else "Trợ lý"
             history_lines.append(f"{role_label}: {msg.content}")
 
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        resp = await client.responses.create(
-            model=settings.GENERATION_MODEL,
-            instructions=_COMPACT_INSTRUCTIONS,
-            input="\n".join(history_lines),
-        )
-        summary = resp.output_text
+        summary = await _llm_compact("\n".join(history_lines))
 
-        sep = "=" * 60
-        print(f"\n{sep}")
-        print(f"[COMPACT] compacting {len(to_compact)} msgs → keeping last 1 turn ({len(to_keep)} msgs)")
-        print(f"[COMPACT] summary:\n{summary}")
-        print(sep)
-
-        # Mark only the older messages as compacted, keep the last turn active
         to_compact_ids = [m.id for m in to_compact]
         await session.execute(
             sa.update(Message)
@@ -245,7 +214,7 @@ async def get_messages(
     session: AsyncSession,
     user_id: uuid.UUID | None = None,
 ) -> list[Message]:
-    await get_conversation(conversation_id, session, user_id)  # 404 + ownership guard
+    await get_conversation(conversation_id, session, user_id)
     stmt = (
         sa.select(Message)
         .where(Message.conversation_id == conversation_id)
@@ -264,7 +233,6 @@ async def chat(
     top_n: int = 10,
     retrieve_n: int = 20,
     rerank: bool = False,
-    mode: str = "online",
     model: str | None = None,
 ) -> dict:
     conv = await get_conversation(conversation_id, session, user_id)
@@ -279,24 +247,17 @@ async def chat(
         document_ids=document_ids,
         user_id=conv.user_id,
         rerank=rerank,
-        mode=mode,
     )
 
-    # Load active history and build prompt
     active_messages = await _get_active_messages(conversation_id, session)
     prompt = _build_prompt(query, chunks, active_messages, conv.compacted_history)
 
-    # Generate answer
-    answer = await _llm_generate(prompt, mode=mode, model=model)
+    answer = await _llm_generate(prompt, model=model)
 
-    # Count tokens and persist messages
     user_tokens = _count_tokens(query)
     assistant_tokens = _count_tokens(answer)
     turn_tokens = user_tokens + assistant_tokens
 
-    # Commit user message first so it gets an earlier created_at than the
-    # assistant message — both in the same transaction would share now() timestamp
-    # and ordering would be non-deterministic on reload.
     session.add(Message(
         conversation_id=conversation_id,
         role="user",
@@ -318,7 +279,6 @@ async def chat(
     await session.commit()
     await session.refresh(conv)
 
-    # Auto-compact if threshold exceeded
     compacting_triggered = False
     threshold = int(settings.COMPACT_THRESHOLD * settings.CONTEXT_LIMIT_TOKENS)
     if new_total > threshold:
@@ -335,6 +295,5 @@ async def chat(
         "context_limit_tokens": settings.CONTEXT_LIMIT_TOKENS,
         "usage_pct": round(conv.total_token_count / settings.CONTEXT_LIMIT_TOKENS * 100, 1),
         "compacting_triggered": compacting_triggered,
-        "model": (model or settings.OFFLINE_LLM_MODEL) if mode == "offline" else settings.GENERATION_MODEL,
-        "mode": mode,
+        "model": model or settings.LLM_MODEL,
     }

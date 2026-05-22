@@ -55,8 +55,7 @@ class ChatRequest(BaseModel):
     top_n: int = Field(default=10, ge=1, le=50)
     retrieve_n: int = Field(default=20, ge=1, le=100)
     rerank: bool = Field(default=False)
-    mode: str = Field(default="online", pattern="^(online|offline)$")
-    model: str | None = Field(default=None, description="Override the default model for this mode")
+    model: str | None = Field(default=None, description="Override the default LLM model")
 
 
 class CompactResponse(BaseModel):
@@ -78,4 +77,3 @@ class ChatResponse(BaseModel):
     usage_pct: float
     compacting_triggered: bool
     model: str
-    mode: str
