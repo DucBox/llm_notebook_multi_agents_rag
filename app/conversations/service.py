@@ -267,6 +267,7 @@ async def chat(
         role="assistant",
         content=answer,
         token_count=assistant_tokens,
+        sources=[c.model_dump(mode="json") for c in chunks],
     ))
 
     new_total = conv.total_token_count + turn_tokens

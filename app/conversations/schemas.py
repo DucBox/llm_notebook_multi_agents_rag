@@ -40,6 +40,7 @@ class MessageRead(BaseModel):
     content: str
     token_count: int
     is_compacted: bool
+    sources: list[ChunkResult] | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -95,7 +95,7 @@ const Chat = (() => {
 
     // Re-render only active (non-compacted) messages
     messages.forEach(m => {
-      if (!m.is_compacted) _appendMessage(m.role, m.content, []);
+      if (!m.is_compacted) _appendMessage(m.role, m.content, m.sources ?? []);
     });
 
     _replaceWithDoneBlock(indicator, conv?.compacted_history ?? null);
@@ -211,7 +211,7 @@ const Chat = (() => {
       }
 
       messages.forEach(m => {
-        if (!m.is_compacted) _appendMessage(m.role, m.content, []);
+        if (!m.is_compacted) _appendMessage(m.role, m.content, m.sources ?? []);
       });
 
       if (conv) _updateCircle(conv.usage_pct);
