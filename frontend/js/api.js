@@ -28,6 +28,9 @@ const API = (() => {
   }
 
   return {
+    // System
+    health: () => fetch('/api/v1/health').then(r => r.json()),
+
     // Auth
     register: (email, password) =>
       request('/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),

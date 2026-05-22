@@ -93,7 +93,7 @@ async def health_check():
         storage_status = "error"
 
     overall = "ok" if db_status == "ok" and storage_status == "ok" else "degraded"
-    return {"status": overall, "db": db_status, "storage": storage_status, "version": settings.APP_VERSION}
+    return {"status": overall, "db": db_status, "storage": storage_status, "version": settings.APP_VERSION, "generation_model": settings.GENERATION_MODEL}
 
 
 # ── Global exception handlers ──────────────────────────────────────────────────

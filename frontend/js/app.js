@@ -28,6 +28,16 @@
     Chat.loadConversation(convId);
   }
 
+  // Populate model name from backend
+  API.health().then(info => {
+    const sel = document.getElementById('model-select');
+    if (info?.generation_model) {
+      sel.innerHTML = `<option value="default">${info.generation_model}</option>`;
+    }
+  }).catch(() => {
+    document.getElementById('model-select').innerHTML = '<option value="default">Unknown</option>';
+  });
+
   // Init modules
   Documents.init();
   Sessions.init(onSessionSelect);
