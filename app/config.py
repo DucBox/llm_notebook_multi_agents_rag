@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     GENERATION_MODEL: str = "gpt-5.4-mini"
 
-    CONTEXT_LIMIT_TOKENS: int = 1000
+    CONTEXT_LIMIT_TOKENS: int = 64000
     COMPACT_THRESHOLD: float = 0.8
 
     JWT_SECRET: str = "change-me-in-production-use-a-random-32-byte-hex"
