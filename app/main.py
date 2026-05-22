@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.auth.router import router as auth_router
@@ -142,3 +144,14 @@ async def _conv_compacting(request: Request, exc: ConversationCompactingError):
 @app.exception_handler(AuthenticationError)
 async def _auth_error(request: Request, exc: AuthenticationError):
     return JSONResponse(status_code=401, content={"detail": str(exc)})
+
+
+# ── Frontend static files ──────────────────────────────────
+# Mounted last so API routes always take priority.
+_frontend = Path(__file__).parent.parent / "frontend"
+if _frontend.exists():
+    app.mount("/ui", StaticFiles(directory=str(_frontend), html=True), name="ui")
+
+    @app.get("/", include_in_schema=False)
+    async def root():
+        return RedirectResponse("/ui/index.html")

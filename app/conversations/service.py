@@ -160,6 +160,29 @@ async def compact_conversation(conv: Conversation, session: AsyncSession) -> Non
 # ── Public API ──────────────────────────────────────────────────────────────
 
 
+async def list_conversations(
+    user_id: uuid.UUID,
+    session: AsyncSession,
+) -> list[Conversation]:
+    stmt = (
+        sa.select(Conversation)
+        .where(Conversation.user_id == user_id)
+        .order_by(Conversation.updated_at.desc())
+    )
+    rows = await session.execute(stmt)
+    return list(rows.scalars().all())
+
+
+async def delete_conversation(
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    session: AsyncSession,
+) -> None:
+    conv = await get_conversation(conversation_id, session, user_id)
+    await session.delete(conv)
+    await session.commit()
+
+
 async def create_conversation(
     user_id: uuid.UUID | None,
     session: AsyncSession,
@@ -204,13 +227,13 @@ async def chat(
     user_id: uuid.UUID | None = None,
     document_ids: list[uuid.UUID] | None = None,
     top_n: int = 5,
-    retrieve_n: int | None = None,
+    retrieve_n: int = 10,
+    rerank: bool = False,
 ) -> dict:
     conv = await get_conversation(conversation_id, session, user_id)
     if conv.status == "compacting":
         raise ConversationCompactingError(str(conversation_id))
 
-    # Retrieve + rerank
     chunks = await retrieval_service.semantic_search(
         query=query,
         top_n=top_n,
@@ -218,6 +241,7 @@ async def chat(
         retrieve_n=retrieve_n,
         document_ids=document_ids,
         user_id=conv.user_id,
+        rerank=rerank,
     )
 
     # Load active history and build prompt

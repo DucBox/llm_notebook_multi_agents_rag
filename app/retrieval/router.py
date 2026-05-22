@@ -23,6 +23,7 @@ async def query(
         retrieve_n=payload.retrieve_n,
         document_ids=payload.document_ids,
         user_id=current_user.id,
+        rerank=payload.rerank,
     )
     return QueryResponse(
         query=payload.query,

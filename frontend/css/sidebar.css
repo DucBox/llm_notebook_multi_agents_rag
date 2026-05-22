@@ -1,0 +1,181 @@
+/* ── Section shell ───────────────────────────────────────── */
+.sidebar-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 8px;
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-muted);
+}
+
+.btn-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--primary);
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background .15s;
+}
+.btn-add:hover { background: #e8f0fe; }
+
+.empty-hint {
+  padding: 16px 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Document list ───────────────────────────────────────── */
+.doc-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .12s;
+  position: relative;
+}
+.doc-item:hover { background: rgba(0,0,0,.05); }
+.doc-item.selected { background: #e8f0fe; }
+
+.doc-checkbox {
+  width: 16px; height: 16px;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.doc-icon {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  flex-shrink: 0;
+}
+.doc-icon.pdf { background: #fce8e6; color: var(--red); }
+.doc-icon.txt { background: #e6f4ea; color: var(--green); }
+.doc-icon.md  { background: #e8f0fe; color: var(--primary); }
+
+.doc-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.doc-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.doc-meta { font-size: 11px; color: var(--text-muted); }
+
+.doc-status {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.doc-status.processed { background: var(--green); }
+.doc-status.processing, .doc-status.pending { background: var(--yellow); animation: pulse 1s infinite; }
+.doc-status.failed { background: var(--red); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+
+.doc-delete {
+  opacity: 0;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  transition: opacity .12s, color .12s;
+}
+.doc-item:hover .doc-delete { opacity: 1; }
+.doc-delete:hover { color: var(--red); background: #fce8e6; }
+
+/* ── Session list ────────────────────────────────────────── */
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .12s;
+}
+.session-item:hover { background: rgba(0,0,0,.05); }
+.session-item.active { background: #e8f0fe; }
+
+.session-icon {
+  width: 28px; height: 28px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.session-info { flex: 1; min-width: 0; }
+.session-date {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-preview {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-delete {
+  opacity: 0;
+  color: var(--text-muted);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  transition: opacity .12s, color .12s;
+}
+.session-item:hover .session-delete { opacity: 1; }
+.session-delete:hover { color: var(--red); background: #fce8e6; }

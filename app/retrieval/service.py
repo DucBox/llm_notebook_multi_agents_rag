@@ -23,15 +23,16 @@ async def semantic_search(
     query: str,
     top_n: int,
     session: AsyncSession,
-    retrieve_n: int | None = None,
+    retrieve_n: int = 10,
     document_ids: list[uuid.UUID] | None = None,
     user_id: uuid.UUID | None = None,
+    rerank: bool = False,
 ) -> list[ChunkResult]:
     provider = _get_provider()
     vectors = await provider.embed([query])
     query_vector = vectors[0]
 
-    candidates_n = retrieve_n or max(top_n * 3, 10)
+    candidates_n = retrieve_n if rerank else top_n
 
     cast_vec = sa.cast(query_vector, Vector(settings.EMBEDDING_DIMENSION))
     distance_col = DocumentChunk.embedding.op("<=>", return_type=sa.Float)(cast_vec).label("distance")
@@ -81,7 +82,7 @@ async def semantic_search(
         for row in rows
     ]
 
-    if settings.RERANKER_ENABLED:
+    if rerank and settings.RERANKER_ENABLED:
         rerank_scores = await reranker_module.rerank(query, [c.text_content for c in chunks])
         for chunk, rr_score in zip(chunks, rerank_scores):
             chunk.rerank_score = round(float(rr_score), 4)

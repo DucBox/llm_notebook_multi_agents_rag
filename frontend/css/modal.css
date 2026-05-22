@@ -1,0 +1,172 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--bg);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-wide { max-width: 720px; }
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.modal-header h3 { font-size: 16px; font-weight: 600; }
+
+.modal-close {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  font-size: 20px;
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.modal-close:hover { background: var(--border); color: var(--text); }
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── File drop zone ──────────────────────────────────────── */
+.file-drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 32px 20px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .15s, background .15s;
+  color: var(--text-muted);
+}
+.file-drop-zone:hover, .file-drop-zone.drag-over {
+  border-color: var(--primary);
+  background: #f0f8ff;
+}
+.file-drop-zone .link { color: var(--primary); font-weight: 500; }
+.file-drop-zone .hint { font-size: 12px; }
+
+/* ── Upload list ─────────────────────────────────────────── */
+.upload-list {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--sidebar-bg);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+.upload-item-name { flex: 1; min-width: 0; }
+.upload-item-name .name {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.upload-item-name .size { font-size: 11px; color: var(--text-muted); }
+
+.upload-status {
+  font-size: 12px; font-weight: 500;
+  white-space: nowrap;
+}
+.upload-status.pending { color: var(--text-muted); }
+.upload-status.uploading { color: var(--primary); }
+.upload-status.done { color: var(--green); }
+.upload-status.error { color: var(--red); }
+
+.upload-remove {
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 4px;
+}
+.upload-remove:hover { color: var(--red); background: #fce8e6; }
+
+/* ── Preview modal ───────────────────────────────────────── */
+.preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 14px;
+  background: var(--sidebar-bg);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+.meta-item { display: flex; flex-direction: column; gap: 2px; }
+.meta-label { font-size: 11px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: .4px; }
+.meta-value { font-weight: 500; color: var(--text); }
+
+.preview-chunks { display: flex; flex-direction: column; gap: 12px; }
+
+.chunk-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.chunk-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--sidebar-bg);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.chunk-card-body {
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  max-height: 120px;
+  overflow: hidden;
+  position: relative;
+}
+.chunk-card-body::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 32px;
+  background: linear-gradient(transparent, var(--bg));
+}

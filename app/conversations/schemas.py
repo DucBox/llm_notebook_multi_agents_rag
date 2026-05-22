@@ -41,7 +41,8 @@ class ChatRequest(BaseModel):
         description="Filter retrieval to specific documents. None = search all.",
     )
     top_n: int = Field(default=5, ge=1, le=20)
-    retrieve_n: int | None = Field(default=None, ge=1, le=100)
+    retrieve_n: int = Field(default=10, ge=1, le=100)
+    rerank: bool = Field(default=False)
 
 
 class CompactResponse(BaseModel):

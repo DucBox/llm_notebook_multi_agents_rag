@@ -6,15 +6,19 @@ from pydantic import BaseModel, Field
 class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1)
     top_n: int = Field(default=5, ge=1, le=50)
-    retrieve_n: int | None = Field(
-        default=None,
+    retrieve_n: int = Field(
+        default=10,
         ge=1,
         le=100,
-        description="Candidates to retrieve before reranking. Defaults to top_n * 3 (min 10).",
+        description="Candidates to retrieve before reranking. Only used when rerank=true.",
     )
     document_ids: list[uuid.UUID] | None = Field(
         default=None,
         description="Filter search to specific documents. None = search all.",
+    )
+    rerank: bool = Field(
+        default=False,
+        description="Enable reranking. Requires RERANKER_ENABLED=true on the server.",
     )
 
 

@@ -21,6 +21,23 @@ from app.core.exceptions import ConversationCompactingError
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
+@router.get("", response_model=list[ConversationRead])
+async def list_conversations(
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await service.list_conversations(current_user.id, session)
+
+
+@router.delete("/{conversation_id}", status_code=204)
+async def delete_conversation(
+    conversation_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await service.delete_conversation(conversation_id, current_user.id, session)
+
+
 @router.post("", response_model=ConversationRead, status_code=201)
 async def create_conversation(
     payload: ConversationCreate,
@@ -83,4 +100,5 @@ async def chat(
         document_ids=payload.document_ids,
         top_n=payload.top_n,
         retrieve_n=payload.retrieve_n,
+        rerank=payload.rerank,
     )
