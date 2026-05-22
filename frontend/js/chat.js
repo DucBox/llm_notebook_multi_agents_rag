@@ -104,9 +104,7 @@ const Chat = (() => {
         if (!m.is_compacted) _appendMessage(m.role, m.content, []);
       });
 
-      if (conv) _updateCircle(
-        Math.round(conv.total_token_count / (conv.total_token_count || 1) * 0) // will update on next chat
-      );
+      if (conv) _updateCircle(conv.usage_pct);
     } catch (err) {
       msgEl.innerHTML = `<div class="empty-hint">Lỗi tải lịch sử: ${_esc(err.message)}</div>`;
     }

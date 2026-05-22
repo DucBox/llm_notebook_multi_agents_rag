@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
+from app.config import settings
 from app.retrieval.schemas import ChunkResult
 
 
@@ -20,6 +21,16 @@ class ConversationRead(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @computed_field
+    @property
+    def context_limit_tokens(self) -> int:
+        return settings.CONTEXT_LIMIT_TOKENS
+
+    @computed_field
+    @property
+    def usage_pct(self) -> float:
+        return round(self.total_token_count / settings.CONTEXT_LIMIT_TOKENS * 100, 1)
 
 
 class MessageRead(BaseModel):
