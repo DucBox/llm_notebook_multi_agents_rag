@@ -18,11 +18,23 @@ class OllamaEmbeddingProvider(BaseEmbeddingProvider):
         return self._model
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(
-                f"{self._base_url}/api/embed",
-                json={"model": self._model, "input": texts},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            return data["embeddings"]
+        import asyncio
+        last_exc = None
+        for attempt in range(3):
+            try:
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    resp = await client.post(
+                        f"{self._base_url}/api/embed",
+                        json={"model": self._model, "input": texts},
+                    )
+                    resp.raise_for_status()
+                    return resp.json()["embeddings"]
+            except httpx.HTTPStatusError as exc:
+                last_exc = exc
+                if attempt < 2:
+                    await asyncio.sleep(2 ** attempt)  # 1s, 2s
+            except httpx.RequestError as exc:
+                last_exc = exc
+                if attempt < 2:
+                    await asyncio.sleep(2 ** attempt)
+        raise last_exc
