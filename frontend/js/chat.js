@@ -226,10 +226,7 @@ const Chat = (() => {
     _sending = true;
 
     const sendBtn = document.getElementById('send-btn');
-    const input   = document.getElementById('chat-input');
     sendBtn.disabled = true;
-    input.value = '';
-    input.style.height = 'auto';
 
     const rerank      = document.getElementById('rerank-select').value === 'true';
     const documentIds = Documents.getSelectedIds();
@@ -295,14 +292,23 @@ const Chat = (() => {
       input.style.height = Math.min(input.scrollHeight, 160) + 'px';
     });
 
+    // !e.isComposing: don't send while IME is still composing (Vietnamese/CJK input)
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
-        send(input.value);
+        const query = input.value;
+        input.value = '';
+        input.style.height = 'auto';
+        send(query);
       }
     });
 
-    sendBtn.addEventListener('click', () => send(input.value));
+    sendBtn.addEventListener('click', () => {
+      const query = input.value;
+      input.value = '';
+      input.style.height = 'auto';
+      send(query);
+    });
     document.getElementById('compact-btn').addEventListener('click', manualCompact);
   }
 
