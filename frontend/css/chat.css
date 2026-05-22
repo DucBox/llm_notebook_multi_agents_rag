@@ -224,6 +224,14 @@
 }
 .source-open-doc:hover { background: #e8f0fe; }
 
+/* Response timing */
+.msg-timing {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
 /* User message plain text */
 .user-text { white-space: pre-wrap; word-break: break-word; }
 

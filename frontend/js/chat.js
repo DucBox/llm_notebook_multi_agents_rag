@@ -157,17 +157,21 @@ const Chat = (() => {
     chip.classList.toggle('open');
   }
 
-  function _appendMessage(role, content, sources) {
+  function _appendMessage(role, content, sources, elapsed) {
     const el = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = `msg-row ${role}`;
     const body = role === 'assistant'
       ? `<div class="md-body">${marked.parse(content)}</div>`
       : `<div class="user-text">${_esc(content)}</div>`;
+    const timing = (role === 'assistant' && elapsed != null)
+      ? `<div class="msg-timing">Response in ${elapsed}s</div>`
+      : '';
     div.innerHTML = `
       <div class="msg-bubble">
         ${body}
         ${role === 'assistant' ? _renderSources(sources) : ''}
+        ${timing}
       </div>
     `;
     el.appendChild(div);
@@ -236,6 +240,7 @@ const Chat = (() => {
     _appendMessage('user', query, null);
     _showTyping();
 
+    const t0 = performance.now();
     try {
       const res = await API.chat(_convId, {
         query,
@@ -246,8 +251,9 @@ const Chat = (() => {
         retrieve_n: 20,
       });
 
+      const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
       _removeTyping();
-      _appendMessage('assistant', res.answer, res.sources);
+      _appendMessage('assistant', res.answer, res.sources, elapsed);
       _updateCircle(res.usage_pct);
       Sessions.updateTokenDisplay(_convId, res.total_token_count, res.context_limit_tokens, res.usage_pct);
 
