@@ -88,6 +88,7 @@ async def list_models():
             models = [
                 m["name"] for m in data
                 if "embed" not in m["name"].lower()
+                and "coder" not in m["name"].lower()
             ]
     except Exception:
         pass
