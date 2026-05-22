@@ -3,6 +3,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
@@ -217,6 +218,25 @@ async def get_chunk(
     if not chunk:
         raise HTTPException(status_code=404, detail="Chunk not found")
     return ChunkRead.model_validate(chunk)
+
+
+# ── File serving ───────────────────────────────────────────────────────────────
+
+@router.get("/{document_id}/file")
+async def serve_file(
+    document_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        doc = await service.get_document(document_id, current_user.id, session)
+    except DocumentNotFoundError:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return FileResponse(
+        path=doc.file_path,
+        filename=doc.original_filename,
+        media_type=doc.mime_type,
+    )
 
 
 # ── Ingestion Jobs ─────────────────────────────────────────────────────────────

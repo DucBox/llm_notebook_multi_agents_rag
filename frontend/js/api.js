@@ -40,12 +40,24 @@ const API = (() => {
     // Documents
     listDocuments: (page = 1, pageSize = 50) =>
       request(`/documents?page=${page}&page_size=${pageSize}`),
+    getDocument: (id) =>
+      request(`/documents/${id}`),
     uploadDocuments: (formData) =>
       request('/documents', { method: 'POST', body: formData }),
     deleteDocument: (id) =>
       request(`/documents/${id}`, { method: 'DELETE' }),
     getDocumentChunks: (id, pageSize = 5) =>
       request(`/documents/${id}/chunks?page_size=${pageSize}`),
+    getDocumentFileUrl: async (id) => {
+      // Fetch file with auth, return a blob URL usable in iframe/object
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${BASE}/documents/${id}/file`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Cannot fetch file');
+      const blob = await res.blob();
+      return { url: URL.createObjectURL(blob), type: blob.type };
+    },
 
     // Conversations
     listConversations: () =>

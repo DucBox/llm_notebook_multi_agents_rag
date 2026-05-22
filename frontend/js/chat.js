@@ -107,10 +107,16 @@ const Chat = (() => {
   function _renderSources(sources) {
     if (!sources || !sources.length) return '';
     const items = sources.map((s, i) => `
-      <div class="source-chip">
+      <div class="source-chip" onclick="Documents.openPreviewById('${s.document_id}')" title="Bấm để xem tài liệu gốc">
         <div class="source-chip-header">
-          [${i+1}] ${_esc(s.document_filename)}${s.page_number ? ` · Trang ${s.page_number}` : ''}
-          <span style="font-weight:400;color:var(--text-muted);margin-left:8px;">
+          <span class="source-chip-link">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            [${i+1}] ${_esc(s.document_filename)}${s.page_number ? ` · Trang ${s.page_number}` : ''}
+          </span>
+          <span style="font-weight:400;color:var(--text-muted);">
             ${s.rerank_score != null ? `score: ${s.rerank_score}` : `score: ${s.score}`}
           </span>
         </div>

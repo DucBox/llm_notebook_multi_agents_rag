@@ -82,6 +82,8 @@ const Documents = (() => {
   }
 
   // ── Preview modal ────────────────────────────────────────
+  let _currentBlobUrl = null;
+
   async function _openPreview(doc) {
     document.getElementById('preview-title').textContent = doc.original_filename;
     document.getElementById('preview-meta').innerHTML = `
@@ -90,26 +92,37 @@ const Documents = (() => {
       <div class="meta-item"><span class="meta-label">Chunks</span><span class="meta-value">${doc.chunk_count ?? 0}</span></div>
       <div class="meta-item"><span class="meta-label">Trang</span><span class="meta-value">${doc.page_count ?? '—'}</span></div>
     `;
-    document.getElementById('preview-chunks').innerHTML = '<div class="empty-hint">Đang tải…</div>';
+
+    const previewEl = document.getElementById('preview-chunks');
+    previewEl.innerHTML = '<div class="empty-hint">Đang tải file…</div>';
     document.getElementById('preview-modal').classList.remove('hidden');
 
+    // Revoke previous blob URL
+    if (_currentBlobUrl) { URL.revokeObjectURL(_currentBlobUrl); _currentBlobUrl = null; }
+
     try {
-      const res = await API.getDocumentChunks(doc.id, 5);
-      const chunks = res.items ?? [];
-      document.getElementById('preview-chunks').innerHTML = chunks.length
-        ? chunks.map(c => `
-          <div class="chunk-card">
-            <div class="chunk-card-header">
-              <span>Chunk #${c.chunk_index + 1}</span>
-              <span>${c.page_number ? `Trang ${c.page_number}` : ''} · ${c.token_count ?? 0} tokens</span>
-            </div>
-            <div class="chunk-card-body">${_esc(c.text_content)}</div>
-          </div>
-        `).join('')
-        : '<div class="empty-hint">Không có chunk nào</div>';
+      const { url, type } = await API.getDocumentFileUrl(doc.id);
+      _currentBlobUrl = url;
+
+      if (type === 'application/pdf') {
+        previewEl.innerHTML = `<iframe class="preview-iframe" src="${url}" title="${_esc(doc.original_filename)}"></iframe>`;
+      } else {
+        // TXT / Markdown — fetch text and display
+        const text = await fetch(url).then(r => r.text());
+        previewEl.innerHTML = `<pre class="preview-text">${_esc(text)}</pre>`;
+      }
     } catch {
-      document.getElementById('preview-chunks').innerHTML = '<div class="empty-hint">Không thể tải nội dung</div>';
+      previewEl.innerHTML = '<div class="empty-hint">Không thể tải file</div>';
     }
+  }
+
+  async function openPreviewById(docId) {
+    let doc = _docs.find(d => d.id === docId);
+    if (!doc) {
+      // Not in cache — fetch from API
+      try { doc = await API.getDocument(docId); } catch { return; }
+    }
+    if (doc) _openPreview(doc);
   }
 
   function _esc(str) {
@@ -243,5 +256,5 @@ const Documents = (() => {
     refresh();
   }
 
-  return { init, refresh, getSelectedIds, _removeFile };
+  return { init, refresh, getSelectedIds, openPreviewById, _removeFile };
 })();

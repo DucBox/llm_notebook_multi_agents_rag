@@ -152,11 +152,24 @@
   border-radius: 8px;
   padding: 8px 12px;
   font-size: 12px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
 }
+.source-chip:hover { border-color: var(--primary); background: #f0f8ff; }
+
 .source-chip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-weight: 600;
   color: var(--text);
   margin-bottom: 4px;
+}
+.source-chip-link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--primary);
 }
 .source-chip-text {
   color: var(--text-muted);
